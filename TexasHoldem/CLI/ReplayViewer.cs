@@ -1,3 +1,4 @@
+using Spectre.Console;
 using TexasHoldem.Domain;
 using TexasHoldem.Domain.Enums;
 
@@ -7,44 +8,55 @@ public class ReplayViewer
 {
     private readonly Logger _logger;
     private readonly InputHelper _inputHelper;
-    private readonly GameUI _gameUI;
+    private readonly SpectreGameUI _gameUI;
 
     public ReplayViewer(Logger logger)
     {
         _logger = logger;
         _inputHelper = new InputHelper();
-        _gameUI = new GameUI();
+        _gameUI = new SpectreGameUI();
     }
 
     public async Task ShowReplayMenu()
     {
         while (true)
         {
-            _inputHelper.ClearScreen();
-            Console.WriteLine("🎬 HAND REPLAY VIEWER");
-            Console.WriteLine("=====================");
-            Console.WriteLine();
+            AnsiConsole.Clear();
 
-            var choice = _inputHelper.GetChoiceInput("What would you like to do?", new Dictionary<string, string>
-            {
-                {"View Recent Hands", "recent"},
-                {"Load Hand History File", "load"},
-                {"Show Game Statistics", "stats"},
-                {"Back to Main Menu", "back"}
-            }, "recent");
+            // Header
+            AnsiConsole.Write(
+                new FigletText("REPLAY")
+                    .Color(Color.Cyan1)
+                    .Centered());
+
+            AnsiConsole.Write(new Rule("[bold cyan]Hand History Viewer[/]").RuleStyle("cyan"));
+            AnsiConsole.WriteLine();
+
+            var choice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[bold green]What would you like to do?[/]")
+                    .PageSize(8)
+                    .HighlightStyle(new Style(Color.Black, Color.Cyan1))
+                    .AddChoices(new[]
+                    {
+                        "View Recent Hands",
+                        "Load Hand History File",
+                        "Show Game Statistics",
+                        "Back to Main Menu"
+                    }));
 
             switch (choice)
             {
-                case "recent":
+                case "View Recent Hands":
                     await ShowRecentHands();
                     break;
-                case "load":
+                case "Load Hand History File":
                     await LoadAndViewHandHistory();
                     break;
-                case "stats":
+                case "Show Game Statistics":
                     ShowGameStatistics();
                     break;
-                case "back":
+                case "Back to Main Menu":
                     return;
             }
         }
@@ -53,10 +65,10 @@ public class ReplayViewer
     private async Task ShowRecentHands()
     {
         var historyFiles = _logger.GetAvailableHandHistoryFiles();
-        
+
         if (!historyFiles.Any())
         {
-            _inputHelper.ShowWarning("No hand history files found.");
+            AnsiConsole.MarkupLine("[yellow]No hand history files found.[/]");
             _inputHelper.PressAnyKeyToContinue();
             return;
         }
@@ -64,10 +76,10 @@ public class ReplayViewer
         // Get the most recent file
         var latestFile = historyFiles.OrderByDescending(f => f).First();
         var handRecords = _logger.LoadHandHistory(latestFile);
-        
+
         if (!handRecords.Any())
         {
-            _inputHelper.ShowWarning("No hands found in the history file.");
+            AnsiConsole.MarkupLine("[yellow]No hands found in the history file.[/]");
             _inputHelper.PressAnyKeyToContinue();
             return;
         }
@@ -78,28 +90,26 @@ public class ReplayViewer
     private async Task LoadAndViewHandHistory()
     {
         var historyFiles = _logger.GetAvailableHandHistoryFiles();
-        
+
         if (!historyFiles.Any())
         {
-            _inputHelper.ShowWarning("No hand history files found.");
+            AnsiConsole.MarkupLine("[yellow]No hand history files found.[/]");
             _inputHelper.PressAnyKeyToContinue();
             return;
         }
 
-        Console.WriteLine("Available hand history files:");
-        for (int i = 0; i < historyFiles.Count; i++)
-        {
-            Console.WriteLine($"  {i + 1}. {historyFiles[i]}");
-        }
+        var selectedFile = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold cyan]Select a hand history file:[/]")
+                .PageSize(10)
+                .HighlightStyle(new Style(Color.Black, Color.Cyan1))
+                .AddChoices(historyFiles.OrderByDescending(f => f)));
 
-        var fileIndex = _inputHelper.GetIntegerInput("Select file number", 1, historyFiles.Count, 1) - 1;
-        var selectedFile = historyFiles[fileIndex];
-        
         var handRecords = _logger.LoadHandHistory(selectedFile);
-        
+
         if (!handRecords.Any())
         {
-            _inputHelper.ShowWarning($"No hands found in {selectedFile}");
+            AnsiConsole.MarkupLine($"[yellow]No hands found in {selectedFile}[/]");
             _inputHelper.PressAnyKeyToContinue();
             return;
         }
@@ -109,39 +119,65 @@ public class ReplayViewer
 
     private async Task ViewHandRecords(List<HandRecord> handRecords, string source)
     {
-        Console.WriteLine($"\n📚 Viewing hands from: {source}");
-        Console.WriteLine($"Total hands: {handRecords.Count}");
-        Console.WriteLine();
+        AnsiConsole.Clear();
+        AnsiConsole.Write(new Rule($"[bold cyan]{source}[/]").RuleStyle("cyan"));
+        AnsiConsole.MarkupLine($"[dim]Total hands: {handRecords.Count}[/]");
+        AnsiConsole.WriteLine();
 
-        for (int i = 0; i < handRecords.Count; i++)
+        // Show hands in a table
+        var handsTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold]#[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Hand[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Date/Time[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Pot[/]").Centered());
+
+        for (int i = 0; i < Math.Min(handRecords.Count, 15); i++)
         {
             var hand = handRecords[i];
-            Console.WriteLine($"{i + 1,3}. Hand #{hand.HandNumber} - {hand.StartTime:yyyy-MM-dd HH:mm} - Pot: ${hand.TotalPot}");
+            handsTable.AddRow(
+                $"{i + 1}",
+                $"#{hand.HandNumber}",
+                hand.StartTime.ToString("yyyy-MM-dd HH:mm"),
+                $"[green]€{hand.TotalPot}[/]");
         }
+
+        if (handRecords.Count > 15)
+        {
+            handsTable.AddRow("[dim]...[/]", $"[dim]+{handRecords.Count - 15} more[/]", "", "");
+        }
+
+        AnsiConsole.Write(handsTable);
+        AnsiConsole.WriteLine();
 
         while (true)
         {
-            Console.WriteLine();
-            var choice = _inputHelper.GetChoiceInput("Select an option:", new Dictionary<string, string>
-            {
-                {"View specific hand", "view"},
-                {"Step through all hands", "step"},
-                {"Show summary statistics", "summary"},
-                {"Back to replay menu", "back"}
-            }, "view");
+            var choice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[bold green]Select an option:[/]")
+                    .PageSize(8)
+                    .HighlightStyle(new Style(Color.Black, Color.Green))
+                    .AddChoices(new[]
+                    {
+                        "View Specific Hand",
+                        "Step Through All Hands",
+                        "Show Summary Statistics",
+                        "Back to Replay Menu"
+                    }));
 
             switch (choice)
             {
-                case "view":
+                case "View Specific Hand":
                     await ViewSpecificHand(handRecords);
                     break;
-                case "step":
+                case "Step Through All Hands":
                     await StepThroughHands(handRecords);
                     break;
-                case "summary":
+                case "Show Summary Statistics":
                     ShowHandSummaryStatistics(handRecords);
                     break;
-                case "back":
+                case "Back to Replay Menu":
                     return;
             }
         }
@@ -149,9 +185,19 @@ public class ReplayViewer
 
     private async Task ViewSpecificHand(List<HandRecord> handRecords)
     {
-        var handNumber = _inputHelper.GetIntegerInput("Enter hand number to view", 1, handRecords.Count, 1);
-        var hand = handRecords[handNumber - 1];
-        
+        var choices = handRecords.Select((h, i) =>
+            $"Hand #{h.HandNumber} - {h.StartTime:HH:mm} - Pot: €{h.TotalPot}").ToList();
+
+        var selectedText = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold cyan]Select a hand to view:[/]")
+                .PageSize(15)
+                .HighlightStyle(new Style(Color.Black, Color.Cyan1))
+                .AddChoices(choices));
+
+        var handIndex = choices.IndexOf(selectedText);
+        var hand = handRecords[handIndex];
+
         await DisplayHandReplay(hand);
         _inputHelper.PressAnyKeyToContinue();
     }
@@ -160,26 +206,32 @@ public class ReplayViewer
     {
         for (int i = 0; i < handRecords.Count; i++)
         {
-            _inputHelper.ClearScreen();
-            Console.WriteLine($"📽️  STEPPING THROUGH HANDS ({i + 1}/{handRecords.Count})");
-            Console.WriteLine("=================================================");
-            
+            AnsiConsole.Clear();
+
+            var progressPanel = new Panel(
+                new Markup($"[bold]Hand {i + 1} of {handRecords.Count}[/]"))
+                .Header("[bold yellow]STEPPING THROUGH HANDS[/]")
+                .Border(BoxBorder.Double)
+                .BorderColor(Color.Yellow);
+            AnsiConsole.Write(progressPanel);
+            AnsiConsole.WriteLine();
+
             await DisplayHandReplay(handRecords[i]);
-            
-            Console.WriteLine();
+
+            AnsiConsole.WriteLine();
             if (i < handRecords.Count - 1)
             {
-                var continueChoice = _inputHelper.GetChoiceInput("Continue?", new Dictionary<string, string>
-                {
-                    {"Next hand", "next"},
-                    {"Stop stepping", "stop"}
-                }, "next");
-                
-                if (continueChoice == "stop") break;
+                var continueChoice = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[bold green]Continue?[/]")
+                        .HighlightStyle(new Style(Color.Black, Color.Green))
+                        .AddChoices(new[] { "Next Hand", "Stop" }));
+
+                if (continueChoice == "Stop") break;
             }
             else
             {
-                Console.WriteLine("🏁 Reached the end of hand history.");
+                AnsiConsole.MarkupLine("[green]Reached the end of hand history.[/]");
                 _inputHelper.PressAnyKeyToContinue();
             }
         }
@@ -187,43 +239,70 @@ public class ReplayViewer
 
     private async Task DisplayHandReplay(HandRecord hand)
     {
-        Console.WriteLine($"\n🎲 HAND #{hand.HandNumber} REPLAY");
-        Console.WriteLine($"Time: {hand.StartTime:yyyy-MM-dd HH:mm:ss} - {hand.EndTime:yyyy-MM-dd HH:mm:ss}");
-        Console.WriteLine($"Duration: {(hand.EndTime - hand.StartTime).TotalSeconds:F1} seconds");
-        Console.WriteLine($"Blinds: ${hand.SmallBlind}/${hand.BigBlind}");
-        Console.WriteLine();
+        // Hand header
+        var headerTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Cyan1)
+            .AddColumn(new TableColumn("[bold]Property[/]"))
+            .AddColumn(new TableColumn("[bold]Value[/]"));
 
-        // Show starting positions
-        Console.WriteLine("🪑 STARTING POSITIONS:");
+        headerTable.AddRow("Hand Number", $"[bold]#{hand.HandNumber}[/]");
+        headerTable.AddRow("Time", $"{hand.StartTime:yyyy-MM-dd HH:mm:ss}");
+        headerTable.AddRow("Duration", $"{(hand.EndTime - hand.StartTime).TotalSeconds:F1} seconds");
+        headerTable.AddRow("Blinds", $"[yellow]€{hand.SmallBlind}/€{hand.BigBlind}[/]");
+        headerTable.AddRow("Total Pot", $"[green]€{hand.TotalPot}[/]");
+
+        AnsiConsole.Write(headerTable);
+        AnsiConsole.WriteLine();
+
+        // Starting positions
+        AnsiConsole.Write(new Rule("[bold cyan]Starting Positions[/]").RuleStyle("cyan").LeftJustified());
+
+        var positionsTable = new Table()
+            .Border(TableBorder.Simple)
+            .AddColumn("Seat")
+            .AddColumn("Player")
+            .AddColumn("Chips")
+            .AddColumn("Type")
+            .AddColumn("Position");
+
         for (int i = 0; i < hand.Players.Count; i++)
         {
             var player = hand.Players[i];
-            var position = i == hand.DealerPosition ? " (Dealer)" : "";
-            var personality = player.IsHuman ? "Human" : player.Personality ?? "AI";
-            Console.WriteLine($"   Seat {i + 1}: {player.Name} - ${player.ChipsBefore} ({personality}){position}");
+            var position = i == hand.DealerPosition ? "[yellow](D)[/]" : "";
+            var personality = player.IsHuman ? "[cyan]Human[/]" : $"[magenta]{player.Personality ?? "AI"}[/]";
+            positionsTable.AddRow(
+                $"{i + 1}",
+                player.Name,
+                $"€{player.ChipsBefore}",
+                personality,
+                position);
         }
-        Console.WriteLine();
 
-        // Show hole cards (only for humans in original game)
-        Console.WriteLine("🃏 HOLE CARDS:");
+        AnsiConsole.Write(positionsTable);
+        AnsiConsole.WriteLine();
+
+        // Hole cards
+        AnsiConsole.Write(new Rule("[bold cyan]Hole Cards[/]").RuleStyle("cyan").LeftJustified());
+
         foreach (var player in hand.Players)
         {
             if (player.IsHuman)
             {
-                Console.WriteLine($"   {player.Name}: {string.Join(" ", player.HoleCards.Select(c => c.GetDisplayString()))}");
+                AnsiConsole.MarkupLine($"  [bold]{player.Name}[/]: {string.Join(" ", player.HoleCards.Select(c => c.GetDisplayString()))}");
             }
             else
             {
-                Console.WriteLine($"   {player.Name}: [Hidden] [Hidden]");
+                AnsiConsole.MarkupLine($"  [bold]{player.Name}[/]: [dim][Hidden] [Hidden][/]");
             }
         }
-        Console.WriteLine();
+        AnsiConsole.WriteLine();
 
-        // Show betting rounds
+        // Betting rounds
         foreach (var round in hand.BettingRounds)
         {
-            Console.WriteLine($"💰 {round.Phase} BETTING:");
-            
+            AnsiConsole.Write(new Rule($"[bold yellow]{round.Phase}[/]").RuleStyle("yellow").LeftJustified());
+
             if (round.Phase != BettingPhase.PreFlop && hand.CommunityCards.Any())
             {
                 var cardsToShow = round.Phase switch
@@ -233,37 +312,37 @@ public class ReplayViewer
                     BettingPhase.River => hand.CommunityCards.Take(5),
                     _ => hand.CommunityCards
                 };
-                Console.WriteLine($"   Board: {string.Join(" ", cardsToShow.Select(c => c.GetDisplayString()))}");
+                AnsiConsole.MarkupLine($"  [cyan]Board:[/] {string.Join(" ", cardsToShow.Select(c => c.GetDisplayString()))}");
             }
 
             foreach (var action in round.Actions)
             {
-                var amountStr = action.Amount > 0 ? $" ${action.Amount}" : "";
-                Console.WriteLine($"   {action.PlayerId}: {action.Action}{amountStr}");
+                var amountStr = action.Amount > 0 ? $" [green]€{action.Amount}[/]" : "";
+                AnsiConsole.MarkupLine($"  [bold]{action.PlayerId}[/]: {action.Action}{amountStr}");
             }
-            
+
             if (round.TotalBet > 0)
             {
-                Console.WriteLine($"   Total bet this round: ${round.TotalBet}");
+                AnsiConsole.MarkupLine($"  [dim]Total bet this round: €{round.TotalBet}[/]");
             }
-            Console.WriteLine();
+            AnsiConsole.WriteLine();
 
-            await Task.Delay(500); // Small delay for readability
+            await Task.Delay(300); // Small delay for readability
         }
 
-        // Show final community cards
+        // Final community cards
         if (hand.CommunityCards.Count == 5)
         {
-            Console.WriteLine("🎴 FINAL BOARD:");
-            Console.WriteLine($"   {string.Join(" ", hand.CommunityCards.Select(c => c.GetDisplayString()))}");
-            Console.WriteLine();
+            AnsiConsole.Write(new Rule("[bold green]Final Board[/]").RuleStyle("green").LeftJustified());
+            AnsiConsole.MarkupLine($"  {string.Join(" ", hand.CommunityCards.Select(c => c.GetDisplayString()))}");
+            AnsiConsole.WriteLine();
         }
 
-        // Show showdown if applicable
+        // Showdown results
         if (hand.Winners.Any())
         {
-            Console.WriteLine("🏆 SHOWDOWN RESULTS:");
-            
+            AnsiConsole.Write(new Rule("[bold magenta]Showdown Results[/]").RuleStyle("magenta").LeftJustified());
+
             // Show all players' final hands
             foreach (var player in hand.Players.Where(p => !p.Folded))
             {
@@ -271,16 +350,17 @@ public class ReplayViewer
                 if (allCards.Count >= 5)
                 {
                     var handResult = HandEvaluator.EvaluateHand(allCards);
-                    Console.WriteLine($"   {player.Name}: {string.Join(" ", player.HoleCards.Select(c => c.GetDisplayString()))} - {handResult.Description}");
+                    AnsiConsole.MarkupLine($"  [bold]{player.Name}[/]: {string.Join(" ", player.HoleCards.Select(c => c.GetDisplayString()))} - [cyan]{handResult.Description}[/]");
                 }
             }
-            
-            Console.WriteLine();
-            Console.WriteLine("💰 WINNERS:");
+
+            AnsiConsole.WriteLine();
+            AnsiConsole.Write(new Rule("[bold green]Winners[/]").RuleStyle("green").LeftJustified());
+
             foreach (var winner in hand.Winners)
             {
-                Console.WriteLine($"   🎉 {winner.PlayerName} wins ${winner.AmountWon} from {winner.PotType}");
-                Console.WriteLine($"       with {winner.HandDescription}");
+                AnsiConsole.MarkupLine($"  [bold green]{winner.PlayerName}[/] wins [bold]€{winner.AmountWon}[/] from {winner.PotType}");
+                AnsiConsole.MarkupLine($"    [dim]with {winner.HandDescription}[/]");
             }
         }
         else
@@ -288,33 +368,46 @@ public class ReplayViewer
             var winner = hand.Players.FirstOrDefault(p => !p.Folded);
             if (winner != null)
             {
-                Console.WriteLine($"🎉 {winner.Name} wins by default (everyone else folded)");
+                AnsiConsole.MarkupLine($"[bold green]{winner.Name}[/] wins by default (everyone else folded)");
             }
         }
 
-        // Show final chip counts
-        Console.WriteLine();
-        Console.WriteLine("💰 FINAL CHIP COUNTS:");
+        // Final chip counts
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold cyan]Final Chip Counts[/]").RuleStyle("cyan").LeftJustified());
+
+        var chipsTable = new Table()
+            .Border(TableBorder.Simple)
+            .AddColumn("Player")
+            .AddColumn("Final Chips")
+            .AddColumn("Change");
+
         foreach (var player in hand.Players)
         {
             var change = player.ChipsAfter - player.ChipsBefore;
-            var changeStr = change > 0 ? $"+${change}" : change < 0 ? $"-${Math.Abs(change)}" : "$0";
-            var changeColor = change > 0 ? "gain" : change < 0 ? "loss" : "even";
-            
-            Console.WriteLine($"   {player.Name}: ${player.ChipsAfter} ({changeStr})");
+            var changeStr = change > 0 ? $"[green]+€{change}[/]" : change < 0 ? $"[red]-€{Math.Abs(change)}[/]" : "[dim]€0[/]";
+
+            chipsTable.AddRow(player.Name, $"€{player.ChipsAfter}", changeStr);
         }
+
+        AnsiConsole.Write(chipsTable);
     }
 
     private void ShowHandSummaryStatistics(List<HandRecord> handRecords)
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("📊 HAND SUMMARY STATISTICS");
-        Console.WriteLine("==========================");
-        Console.WriteLine();
+        AnsiConsole.Clear();
+
+        AnsiConsole.Write(
+            new FigletText("STATS")
+                .Color(Color.Magenta1)
+                .Centered());
+
+        AnsiConsole.Write(new Rule("[bold magenta]Hand Summary Statistics[/]").RuleStyle("magenta"));
+        AnsiConsole.WriteLine();
 
         if (!handRecords.Any())
         {
-            Console.WriteLine("No hands to analyze.");
+            AnsiConsole.MarkupLine("[yellow]No hands to analyze.[/]");
             _inputHelper.PressAnyKeyToContinue();
             return;
         }
@@ -325,18 +418,38 @@ public class ReplayViewer
         var largestPot = handRecords.Max(h => h.TotalPot);
         var smallestPot = handRecords.Min(h => h.TotalPot);
 
-        Console.WriteLine($"Total Hands: {totalHands}");
-        Console.WriteLine($"Total Money in Play: ${totalPot:N0}");
-        Console.WriteLine($"Average Pot Size: ${averagePot:F0}");
-        Console.WriteLine($"Largest Pot: ${largestPot:N0}");
-        Console.WriteLine($"Smallest Pot: ${smallestPot:N0}");
-        Console.WriteLine();
+        // Overview table
+        var overviewTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Magenta1)
+            .AddColumn(new TableColumn("[bold]Statistic[/]"))
+            .AddColumn(new TableColumn("[bold]Value[/]").RightAligned());
+
+        overviewTable.AddRow("Total Hands", $"[cyan]{totalHands}[/]");
+        overviewTable.AddRow("Total Money in Play", $"[green]€{totalPot:N0}[/]");
+        overviewTable.AddRow("Average Pot Size", $"[yellow]€{averagePot:F0}[/]");
+        overviewTable.AddRow("Largest Pot", $"[green]€{largestPot:N0}[/]");
+        overviewTable.AddRow("Smallest Pot", $"[dim]€{smallestPot:N0}[/]");
+
+        AnsiConsole.Write(overviewTable);
+        AnsiConsole.WriteLine();
 
         // Player statistics
         var allPlayers = handRecords.SelectMany(h => h.Players).GroupBy(p => p.Name);
-        
-        Console.WriteLine("👥 PLAYER STATISTICS:");
-        foreach (var playerGroup in allPlayers.OrderBy(g => g.Key))
+
+        AnsiConsole.Write(new Rule("[bold cyan]Player Statistics[/]").RuleStyle("cyan"));
+        AnsiConsole.WriteLine();
+
+        var playerTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Cyan1)
+            .AddColumn(new TableColumn("[bold]Player[/]"))
+            .AddColumn(new TableColumn("[bold]Hands[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Winnings[/]").RightAligned())
+            .AddColumn(new TableColumn("[bold]Win Rate[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Fold Rate[/]").Centered());
+
+        foreach (var playerGroup in allPlayers.OrderByDescending(g => g.Sum(p => p.ChipsAfter - p.ChipsBefore)))
         {
             var playerHands = playerGroup.ToList();
             var handsPlayed = playerHands.Count;
@@ -344,49 +457,80 @@ public class ReplayViewer
             var winRate = playerHands.Count(p => p.ChipsAfter > p.ChipsBefore) / (double)handsPlayed * 100;
             var foldRate = playerHands.Count(p => p.Folded) / (double)handsPlayed * 100;
 
-            Console.WriteLine($"   {playerGroup.Key}:");
-            Console.WriteLine($"     Hands Played: {handsPlayed}");
-            Console.WriteLine($"     Total Winnings: ${totalWinnings:+#;-#;0}");
-            Console.WriteLine($"     Win Rate: {winRate:F1}%");
-            Console.WriteLine($"     Fold Rate: {foldRate:F1}%");
+            var winningsColor = totalWinnings > 0 ? "green" : totalWinnings < 0 ? "red" : "dim";
+
+            playerTable.AddRow(
+                playerGroup.Key,
+                handsPlayed.ToString(),
+                $"[{winningsColor}]€{totalWinnings:+#;-#;0}[/]",
+                $"{winRate:F1}%",
+                $"{foldRate:F1}%");
         }
 
-        Console.WriteLine();
+        AnsiConsole.Write(playerTable);
+        AnsiConsole.WriteLine();
+
         _inputHelper.PressAnyKeyToContinue();
     }
 
     private void ShowGameStatistics()
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("📈 GAME STATISTICS");
-        Console.WriteLine("==================");
-        Console.WriteLine();
+        AnsiConsole.Clear();
+
+        AnsiConsole.Write(
+            new FigletText("FILES")
+                .Color(Color.Green)
+                .Centered());
+
+        AnsiConsole.Write(new Rule("[bold green]Game Statistics[/]").RuleStyle("green"));
+        AnsiConsole.WriteLine();
 
         var logFiles = _logger.GetAvailableLogFiles();
         var handHistoryFiles = _logger.GetAvailableHandHistoryFiles();
 
-        Console.WriteLine($"Log Directory: {_logger.GetLogDirectory()}");
-        Console.WriteLine($"Available Log Files: {logFiles.Count}");
-        Console.WriteLine($"Available Hand History Files: {handHistoryFiles.Count}");
-        Console.WriteLine();
+        // Overview
+        var overviewTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Green)
+            .AddColumn(new TableColumn("[bold]Info[/]"))
+            .AddColumn(new TableColumn("[bold]Value[/]"));
+
+        overviewTable.AddRow("Log Directory", $"[dim]{_logger.GetLogDirectory()}[/]");
+        overviewTable.AddRow("Log Files", $"[cyan]{logFiles.Count}[/]");
+        overviewTable.AddRow("Hand History Files", $"[cyan]{handHistoryFiles.Count}[/]");
+
+        AnsiConsole.Write(overviewTable);
+        AnsiConsole.WriteLine();
 
         if (handHistoryFiles.Any())
         {
-            Console.WriteLine("📁 HAND HISTORY FILES:");
+            AnsiConsole.Write(new Rule("[bold cyan]Hand History Files[/]").RuleStyle("cyan"));
+            AnsiConsole.WriteLine();
+
+            var filesTable = new Table()
+                .Border(TableBorder.Simple)
+                .AddColumn("File")
+                .AddColumn("Created")
+                .AddColumn("Size")
+                .AddColumn("Hands");
+
             foreach (var file in handHistoryFiles.OrderByDescending(f => f))
             {
                 var filePath = Path.Combine(_logger.GetLogDirectory(), file);
                 var fileInfo = new FileInfo(filePath);
                 var handCount = _logger.LoadHandHistory(file).Count;
-                
-                Console.WriteLine($"   {file}");
-                Console.WriteLine($"     Created: {fileInfo.CreationTime:yyyy-MM-dd HH:mm}");
-                Console.WriteLine($"     Size: {fileInfo.Length / 1024.0:F1} KB");
-                Console.WriteLine($"     Hands: {handCount}");
+
+                filesTable.AddRow(
+                    file,
+                    fileInfo.CreationTime.ToString("yyyy-MM-dd HH:mm"),
+                    $"{fileInfo.Length / 1024.0:F1} KB",
+                    handCount.ToString());
             }
+
+            AnsiConsole.Write(filesTable);
         }
 
-        Console.WriteLine();
+        AnsiConsole.WriteLine();
         _inputHelper.PressAnyKeyToContinue();
     }
 }

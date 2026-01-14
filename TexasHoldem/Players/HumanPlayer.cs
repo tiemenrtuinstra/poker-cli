@@ -1,3 +1,4 @@
+using Spectre.Console;
 using TexasHoldem.Domain;
 using TexasHoldem.Domain.Enums;
 using TexasHoldem.CLI;
@@ -7,7 +8,7 @@ namespace TexasHoldem.Players;
 public class HumanPlayer : IPlayer
 {
     private readonly InputHelper _inputHelper;
-    private readonly GameUI _gameUI;
+    private readonly SpectreGameUI _gameUI;
 
     public string Name { get; }
     public int Chips { get; set; }
@@ -17,26 +18,34 @@ public class HumanPlayer : IPlayer
     public bool HasFolded { get; set; }
     public PersonalityType? Personality => null; // Human players don't have AI personalities
 
-    public HumanPlayer(string name, int startingChips, InputHelper? inputHelper = null, GameUI? gameUI = null)
+    public HumanPlayer(string name, int startingChips, InputHelper? inputHelper = null, SpectreGameUI? gameUI = null)
     {
         Name = name;
         Chips = startingChips;
         _inputHelper = inputHelper ?? new InputHelper();
-        _gameUI = gameUI ?? new GameUI();
+        _gameUI = gameUI ?? new SpectreGameUI();
     }
 
     public PlayerAction TakeTurn(GameState gameState)
     {
         // Clear screen for privacy when multiple humans play
-        Console.Clear();
-        Console.WriteLine();
-        _gameUI.DrawSeparator('═', 60);
-        _gameUI.ShowColoredMessage($"  🎯 {Name}, it's your turn!", ConsoleColor.Yellow);
-        _gameUI.DrawSeparator('═', 60);
-        Console.WriteLine();
-        Console.Write("Press ENTER to see your cards...");
-        Console.ReadLine();
-        Console.Clear();
+        AnsiConsole.Clear();
+        AnsiConsole.WriteLine();
+
+        // Privacy header
+        var headerPanel = new Panel(
+            new Markup($"[bold yellow]{Name}[/], it's your turn!"))
+            .Header("[bold cyan]YOUR TURN[/]")
+            .HeaderAlignment(Justify.Center)
+            .Border(BoxBorder.Double)
+            .BorderColor(Color.Yellow)
+            .Padding(2, 0);
+        AnsiConsole.Write(headerPanel);
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[dim]Press ENTER to see your cards...[/]");
+        Console.ReadKey(true);
+        AnsiConsole.Clear();
 
         // Show the visual poker table
         var playerIndex = gameState.Players.IndexOf(this);
@@ -45,68 +54,68 @@ public class HumanPlayer : IPlayer
         // Show your hole cards with ASCII art
         _gameUI.DisplayHoleCardsAscii(this);
 
-        // Show betting information
-        Console.WriteLine();
-        _gameUI.DrawSeparator('-', 40);
-        Console.WriteLine($"  💰 Your chips: ${Chips}");
-        Console.WriteLine($"  💵 Current bet to match: ${gameState.CurrentBet}");
-        Console.WriteLine($"  💸 You need to call: ${Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this))}");
-        _gameUI.DrawSeparator('-', 40);
-        Console.WriteLine();
+        // Show betting information in a panel
+        AnsiConsole.WriteLine();
+        var callAmount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this));
+
+        var bettingTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold]Info[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Amount[/]").Centered());
+
+        bettingTable.AddRow("[cyan]Your chips[/]", $"[green]€{Chips}[/]");
+        bettingTable.AddRow("[cyan]Current bet[/]", $"[yellow]€{gameState.CurrentBet}[/]");
+        bettingTable.AddRow("[cyan]To call[/]", callAmount > 0 ? $"[red]€{callAmount}[/]" : "[green]€0[/]");
+
+        AnsiConsole.Write(bettingTable);
+        AnsiConsole.WriteLine();
 
         var validActions = GetValidActions(gameState);
-        
-        while (true)
+
+        // Build action choices with descriptions
+        var actionChoices = validActions.Select(a => GetActionDisplayText(a, gameState)).ToList();
+
+        var selectedText = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold green]Choose your action:[/]")
+                .PageSize(10)
+                .HighlightStyle(new Style(Color.Black, Color.Green))
+                .AddChoices(actionChoices));
+
+        // Find the selected action
+        var selectedIndex = actionChoices.IndexOf(selectedText);
+        var selectedAction = validActions[selectedIndex];
+        int amount = 0;
+
+        if (selectedAction == ActionType.Bet || selectedAction == ActionType.Raise)
         {
-            Console.WriteLine("Available actions:");
-            for (int i = 0; i < validActions.Count; i++)
-            {
-                var action = validActions[i];
-                var actionText = GetActionDisplayText(action, gameState);
-                Console.WriteLine($"{i + 1}. {actionText}");
-            }
-
-            Console.Write("Choose your action (1-{0}): ", validActions.Count);
-            
-            if (int.TryParse(Console.ReadLine(), out int choice) && 
-                choice >= 1 && choice <= validActions.Count)
-            {
-                var selectedAction = validActions[choice - 1];
-                int amount = 0;
-
-                if (selectedAction == ActionType.Bet || selectedAction == ActionType.Raise)
-                {
-                    amount = GetBetAmount(gameState, selectedAction);
-                    if (amount == -1) continue; // Invalid amount, retry
-                }
-                else if (selectedAction == ActionType.Call)
-                {
-                    amount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this));
-                    amount = Math.Min(amount, Chips); // Can't bet more than we have
-                }
-                else if (selectedAction == ActionType.AllIn)
-                {
-                    amount = Chips;
-                }
-
-                return new PlayerAction
-                {
-                    PlayerId = Name,
-                    Action = selectedAction,
-                    Amount = amount,
-                    Timestamp = DateTime.Now,
-                    BettingPhase = gameState.BettingPhase
-                };
-            }
-
-            Console.WriteLine("❌ Invalid choice. Please try again.");
+            amount = GetBetAmount(gameState, selectedAction);
         }
+        else if (selectedAction == ActionType.Call)
+        {
+            amount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this));
+            amount = Math.Min(amount, Chips); // Can't bet more than we have
+        }
+        else if (selectedAction == ActionType.AllIn)
+        {
+            amount = Chips;
+        }
+
+        return new PlayerAction
+        {
+            PlayerId = Name,
+            Action = selectedAction,
+            Amount = amount,
+            Timestamp = DateTime.Now,
+            BettingPhase = gameState.BettingPhase
+        };
     }
 
     private List<ActionType> GetValidActions(GameState gameState)
     {
         var actions = new List<ActionType>();
-        
+
         // Always can fold (unless already folded)
         if (!HasFolded)
         {
@@ -119,13 +128,13 @@ public class HumanPlayer : IPlayer
         }
 
         var callAmount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this));
-        
+
         // Can check if no bet to call
         if (callAmount == 0)
         {
             actions.Add(ActionType.Check);
         }
-        
+
         // Can call if there's a bet and we have chips
         if (callAmount > 0 && callAmount <= Chips)
         {
@@ -160,15 +169,15 @@ public class HumanPlayer : IPlayer
     private string GetActionDisplayText(ActionType action, GameState gameState)
     {
         var callAmount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this));
-        
+
         return action switch
         {
             ActionType.Fold => "Fold",
             ActionType.Check => "Check",
-            ActionType.Call => $"Call ${callAmount}",
+            ActionType.Call => $"Call €{callAmount}",
             ActionType.Bet => "Bet",
-            ActionType.Raise => $"Raise (min ${gameState.CurrentBet * 2})",
-            ActionType.AllIn => $"All In (${Chips})",
+            ActionType.Raise => $"Raise (min €{gameState.CurrentBet * 2})",
+            ActionType.AllIn => $"All In (€{Chips})",
             _ => action.ToString()
         };
     }
@@ -183,33 +192,26 @@ public class HumanPlayer : IPlayer
 
         // Max bet/raise = remaining chips + what you've already bet this round
         var maxBet = Chips + alreadyBet;
-        
-        Console.WriteLine($"💵 Minimum {action.ToString().ToLower()}: ${minBet}");
-        Console.WriteLine($"💰 Maximum {action.ToString().ToLower()}: ${maxBet}");
-        
-        while (true)
-        {
-            Console.Write($"Enter {action.ToString().ToLower()} amount: $");
-            
-            if (int.TryParse(Console.ReadLine(), out int amount))
-            {
-                if (amount >= minBet && amount <= maxBet)
+
+        // Show bet range info
+        var infoPanel = new Panel(
+            new Markup($"[cyan]Minimum:[/] [green]€{minBet}[/]\n[cyan]Maximum:[/] [green]€{maxBet}[/]"))
+            .Header($"[bold yellow]{action} Amount[/]")
+            .Border(BoxBorder.Rounded)
+            .BorderColor(Color.Yellow);
+        AnsiConsole.Write(infoPanel);
+
+        return AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Enter {action.ToString().ToLower()} amount:[/]")
+                .DefaultValue(minBet)
+                .Validate(amount =>
                 {
-                    return amount;
-                }
-                Console.WriteLine($"❌ Amount must be between ${minBet} and ${maxBet}");
-            }
-            else
-            {
-                Console.WriteLine("❌ Please enter a valid number");
-            }
-            
-            Console.Write("Try again? (y/n): ");
-            if (Console.ReadLine()?.ToLower() != "y")
-            {
-                return -1; // Cancel action
-            }
-        }
+                    if (amount < minBet)
+                        return ValidationResult.Error($"[red]Amount must be at least €{minBet}[/]");
+                    if (amount > maxBet)
+                        return ValidationResult.Error($"[red]Amount cannot exceed €{maxBet}[/]");
+                    return ValidationResult.Success();
+                }));
     }
 
     public void ReceiveCards(List<Card> cards)
@@ -240,17 +242,17 @@ public class HumanPlayer : IPlayer
 
     public void ShowCards()
     {
-        Console.WriteLine($"{Name}'s cards: {string.Join(" ", HoleCards.Select(c => c.GetDisplayString()))}");
+        AnsiConsole.MarkupLine($"[bold]{Name}[/]'s cards: {string.Join(" ", HoleCards.Select(c => c.GetDisplayString()))}");
     }
 
     public void HideCards()
     {
         // For hot-seat mode, we might want to clear the screen or show a message
-        Console.WriteLine($"🔒 {Name}'s cards are hidden");
+        AnsiConsole.MarkupLine($"[dim]{Name}'s cards are hidden[/]");
     }
 
     public override string ToString()
     {
-        return $"{Name} (Human) - ${Chips}";
+        return $"{Name} (Human) - €{Chips}";
     }
 }

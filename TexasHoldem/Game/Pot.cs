@@ -182,9 +182,9 @@ public class Pot
     {
         if (_sidePots.Any())
         {
-            return $"Total Pot: ${TotalPotAmount} (Main: ${_mainPot}, Side Pots: {_sidePots.Count})";
+            return $"Total Pot: €{TotalPotAmount} (Main: €{_mainPot}, Side Pots: {_sidePots.Count})";
         }
-        return $"Pot: ${TotalPotAmount}";
+        return $"Pot: €{TotalPotAmount}";
     }
 }
 

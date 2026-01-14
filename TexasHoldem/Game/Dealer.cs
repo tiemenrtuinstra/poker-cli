@@ -196,11 +196,11 @@ public class Dealer
         if (smallBlindGoesAllIn)
         {
             smallBlindPlayer.IsAllIn = true;
-            Console.WriteLine($"💰 {smallBlindPlayer.Name} posts small blind ${actualSmallBlind} and is ALL-IN!");
+            Console.WriteLine($"💰 {smallBlindPlayer.Name} posts small blind €{actualSmallBlind} and is ALL-IN!");
         }
         else
         {
-            Console.WriteLine($"💰 {smallBlindPlayer.Name} posts small blind ${actualSmallBlind}");
+            Console.WriteLine($"💰 {smallBlindPlayer.Name} posts small blind €{actualSmallBlind}");
         }
 
         // Post big blind - check for all-in BEFORE removing chips
@@ -210,11 +210,11 @@ public class Dealer
         if (bigBlindGoesAllIn)
         {
             bigBlindPlayer.IsAllIn = true;
-            Console.WriteLine($"💰 {bigBlindPlayer.Name} posts big blind ${actualBigBlind} and is ALL-IN!");
+            Console.WriteLine($"💰 {bigBlindPlayer.Name} posts big blind €{actualBigBlind} and is ALL-IN!");
         }
         else
         {
-            Console.WriteLine($"💰 {bigBlindPlayer.Name} posts big blind ${actualBigBlind}");
+            Console.WriteLine($"💰 {bigBlindPlayer.Name} posts big blind €{actualBigBlind}");
         }
     }
 
@@ -222,7 +222,7 @@ public class Dealer
     {
         if (anteAmount <= 0) return;
 
-        Console.WriteLine($"💰 Posting antes of ${anteAmount}...");
+        Console.WriteLine($"💰 Posting antes of €{anteAmount}...");
         
         foreach (var player in players.Where(p => p.IsActive && p.Chips > 0))
         {

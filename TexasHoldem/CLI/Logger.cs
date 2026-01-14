@@ -76,7 +76,7 @@ public class Logger
     {
         if (!_isEnabled) return;
         
-        var amountStr = amount > 0 ? $" ${amount}" : "";
+        var amountStr = amount > 0 ? $" €{amount}" : "";
         var message = $"{playerName} {action}{amountStr} during {phase}";
         
         var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ACTION] {message}";
@@ -99,8 +99,8 @@ public class Logger
     {
         if (!_isEnabled) return;
         
-        var winnersStr = string.Join(", ", winners.Select(w => $"{w.Player.Name} (${w.Amount})"));
-        var message = $"Hand #{handNumber} ended. Total pot: ${totalPot}. Winners: {winnersStr}";
+        var winnersStr = string.Join(", ", winners.Select(w => $"{w.Player.Name} (€{w.Amount})"));
+        var message = $"Hand #{handNumber} ended. Total pot: €{totalPot}. Winners: {winnersStr}";
         LogInfo(message);
     }
 

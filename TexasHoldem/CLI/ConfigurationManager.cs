@@ -159,9 +159,9 @@ public class ConfigurationManager
         Console.WriteLine($"🎮 Game Defaults:");
         Console.WriteLine($"   Human Players: {_config.Game.DefaultHumanPlayers}");
         Console.WriteLine($"   AI Players: {_config.Game.DefaultAiPlayers}");
-        Console.WriteLine($"   Starting Chips: ${_config.Game.DefaultStartingChips:N0}");
-        Console.WriteLine($"   Blinds: ${_config.Game.DefaultSmallBlind}/${_config.Game.DefaultBigBlind}");
-        Console.WriteLine($"   Ante: ${_config.Game.DefaultAnte}");
+        Console.WriteLine($"   Starting Chips: €{_config.Game.DefaultStartingChips:N0}");
+        Console.WriteLine($"   Blinds: €{_config.Game.DefaultSmallBlind}/€{_config.Game.DefaultBigBlind}");
+        Console.WriteLine($"   Ante: €{_config.Game.DefaultAnte}");
         Console.WriteLine($"   Colors: {_config.Game.UseColors}");
         Console.WriteLine($"   ASCII Art: {_config.Game.EnableAsciiArt}");
         Console.WriteLine($"   Logging: {_config.Game.EnableLogging}");

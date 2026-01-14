@@ -60,11 +60,11 @@ public class BettingLogic
                     if (player.Chips == 0)
                     {
                         player.IsAllIn = true;
-                        Console.WriteLine($"🎯 {player.Name} calls ${callAmount} and is ALL-IN!");
+                        Console.WriteLine($"🎯 {player.Name} calls €{callAmount} and is ALL-IN!");
                     }
                     else
                     {
-                        Console.WriteLine($"📞 {player.Name} calls ${callAmount}");
+                        Console.WriteLine($"📞 {player.Name} calls €{callAmount}");
                     }
                 }
                 break;
@@ -79,11 +79,11 @@ public class BettingLogic
                     if (player.Chips == 0)
                     {
                         player.IsAllIn = true;
-                        Console.WriteLine($"🎯 {player.Name} bets ${action.Amount} and is ALL-IN!");
+                        Console.WriteLine($"🎯 {player.Name} bets €{action.Amount} and is ALL-IN!");
                     }
                     else
                     {
-                        Console.WriteLine($"💰 {player.Name} bets ${action.Amount}");
+                        Console.WriteLine($"💰 {player.Name} bets €{action.Amount}");
                     }
                 }
                 break;
@@ -98,11 +98,11 @@ public class BettingLogic
                     if (player.Chips == 0)
                     {
                         player.IsAllIn = true;
-                        Console.WriteLine($"🎯 {player.Name} raises to ${action.Amount} and is ALL-IN!");
+                        Console.WriteLine($"🎯 {player.Name} raises to €{action.Amount} and is ALL-IN!");
                     }
                     else
                     {
-                        Console.WriteLine($"🚀 {player.Name} raises to ${action.Amount}");
+                        Console.WriteLine($"🚀 {player.Name} raises to €{action.Amount}");
                     }
                 }
                 break;
@@ -117,11 +117,11 @@ public class BettingLogic
                     if (allInAmount > gameState.CurrentBet)
                     {
                         gameState.CurrentBet = allInAmount;
-                        Console.WriteLine($"💥 {player.Name} goes ALL-IN for ${allInAmount}! (Raise)");
+                        Console.WriteLine($"💥 {player.Name} goes ALL-IN for €{allInAmount}! (Raise)");
                     }
                     else
                     {
-                        Console.WriteLine($"💥 {player.Name} goes ALL-IN for ${allInAmount}! (Call)");
+                        Console.WriteLine($"💥 {player.Name} goes ALL-IN for €{allInAmount}! (Call)");
                     }
                 }
                 break;
@@ -260,7 +260,7 @@ public class BettingLogic
     public static void ShowBettingAction(PlayerAction action)
     {
         var timestamp = action.Timestamp.ToString("HH:mm:ss");
-        var amountStr = action.Amount > 0 ? $" ${action.Amount}" : "";
+        var amountStr = action.Amount > 0 ? $" €{action.Amount}" : "";
         Console.WriteLine($"[{timestamp}] {action.PlayerId}: {action.Action}{amountStr}");
     }
 

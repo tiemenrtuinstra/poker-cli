@@ -204,6 +204,8 @@ jobs:
 
       - name: Publish self-contained executable
         run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          VERSION_NUM="${VERSION#v}"  # Remove 'v' prefix for version numbers
           dotnet publish ${{ env.PROJECT_PATH }} \
             --configuration Release \
             --runtime ${{ matrix.rid }} \
@@ -211,7 +213,8 @@ jobs:
             -p:PublishSingleFile=true \
             -p:IncludeNativeLibrariesForSelfExtract=true \
             -p:EnableCompressionInSingleFile=true \
-            -p:Version=${{ needs.prepare.outputs.version }} \
+            -p:Version=${VERSION_NUM} \
+            -p:InformationalVersion=${VERSION_NUM} \
             --output ./publish
         shell: bash
 

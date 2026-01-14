@@ -12,7 +12,7 @@ public class TexasHoldemGame
     private readonly GameState _gameState;
     private readonly List<RoundResult> _roundHistory;
     private readonly Random _random;
-    private readonly GameUI _gameUI;
+    private readonly SpectreGameUI _gameUI;
     private bool _gameRunning;
 
     public bool IsGameRunning => _gameRunning;
@@ -26,7 +26,7 @@ public class TexasHoldemGame
         _dealer = new Dealer(_random);
         _gameState = new GameState();
         _roundHistory = new List<RoundResult>();
-        _gameUI = new GameUI();
+        _gameUI = new SpectreGameUI();
         _gameRunning = false;
 
         InitializeGame();
@@ -75,11 +75,11 @@ public class TexasHoldemGame
         }
 
         Console.WriteLine($"✅ Game initialized with {_gameState.Players.Count} players");
-        Console.WriteLine($"💰 Starting chips: ${_config.StartingChips}");
-        Console.WriteLine($"🎯 Blinds: ${_config.SmallBlind}/${_config.BigBlind}");
+        Console.WriteLine($"💰 Starting chips: €{_config.StartingChips}");
+        Console.WriteLine($"🎯 Blinds: €{_config.SmallBlind}/€{_config.BigBlind}");
         if (_config.Ante > 0)
         {
-            Console.WriteLine($"💸 Ante: ${_config.Ante}");
+            Console.WriteLine($"💸 Ante: €{_config.Ante}");
         }
 
         ShowPlayerSummary();
@@ -143,7 +143,7 @@ public class TexasHoldemGame
             // Save round result
             _roundHistory.Add(round.GetResult());
 
-            Console.WriteLine($"\n⏱️  Hand #{_gameState.HandNumber} completed in {(DateTime.Now - _gameState.HandStartTime).TotalSeconds:F1} seconds");
+            _gameUI.DisplayHandCompleted(_gameState.HandNumber, (DateTime.Now - _gameState.HandStartTime).TotalSeconds);
         }
         catch (Exception ex)
         {
@@ -153,8 +153,6 @@ public class TexasHoldemGame
 
     private async Task PrepareNextHand()
     {
-        Console.WriteLine("\n🔄 Preparing for next hand...");
-
         // Reset players for new hand
         BettingLogic.ResetPlayersForNewHand(_gameState.Players);
 
@@ -182,6 +180,10 @@ public class TexasHoldemGame
         _gameState.PlayerHasFolded.Clear();
         _gameState.PlayerHasActed.Clear();
 
+        // Show preparing for next hand with new dealer
+        var newDealer = _gameState.Players[_gameState.DealerPosition].Name;
+        _gameUI.DisplayPreparingNextHand(newDealer);
+
         // Show current standings
         ShowPlayerSummary();
 
@@ -192,30 +194,7 @@ public class TexasHoldemGame
 
     private void ShowPlayerSummary()
     {
-        Console.WriteLine("\n👥 PLAYER SUMMARY:");
-        Console.WriteLine(new string('-', 50));
-        
-        var activePlayers = _gameState.Players.Where(p => p.IsActive).OrderByDescending(p => p.Chips).ToList();
-        
-        for (int i = 0; i < activePlayers.Count; i++)
-        {
-            var player = activePlayers[i];
-            var position = i == _gameState.DealerPosition ? " (D)" : "";
-            var playerType = player is HumanPlayer ? "Human" : 
-                           player.Personality?.ToString() ?? "AI";
-            
-            Console.WriteLine($"{i + 1,2}. {player.Name,-20} {playerType,-12} ${player.Chips,8}{position}");
-        }
-
-        if (_gameState.Players.Any(p => !p.IsActive))
-        {
-            Console.WriteLine("\n💸 ELIMINATED:");
-            var eliminatedPlayers = _gameState.Players.Where(p => !p.IsActive).ToList();
-            foreach (var player in eliminatedPlayers)
-            {
-                Console.WriteLine($"   {player.Name} - Busted");
-            }
-        }
+        _gameUI.DisplayPlayerSummary(_gameState.Players, _gameState.DealerPosition);
     }
 
     private bool IsGameOver()
@@ -239,69 +218,34 @@ public class TexasHoldemGame
     private async Task EndGame()
     {
         _gameRunning = false;
-        
-        Console.WriteLine("\n" + new string('=', 60));
-        Console.WriteLine("🏁 GAME OVER!");
-        Console.WriteLine(new string('=', 60));
 
         var activePlayers = _gameState.Players.Where(p => p.IsActive && p.Chips > 0).ToList();
-        
-        if (activePlayers.Count == 1)
-        {
-            var winner = activePlayers.First();
-            Console.WriteLine($"🏆 WINNER: {winner.Name} with ${winner.Chips}!");
-            
-            if (winner is HumanPlayer)
-            {
-                Console.WriteLine("🎉 Congratulations! You won the tournament!");
-            }
-            else
-            {
-                Console.WriteLine($"🤖 The AI player {winner.Name} ({winner.Personality}) has won!");
-            }
-        }
-        else if (activePlayers.Count > 1)
-        {
-            Console.WriteLine("🏆 FINAL RANKINGS:");
-            var rankings = activePlayers.OrderByDescending(p => p.Chips).ToList();
-            
-            for (int i = 0; i < rankings.Count; i++)
-            {
-                var player = rankings[i];
-                var medal = i switch { 0 => "🥇", 1 => "🥈", 2 => "🥉", _ => $"{i + 1}." };
-                Console.WriteLine($"{medal} {player.Name}: ${player.Chips}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("💔 No players remaining! What a strange game...");
-        }
+
+        // Display game over with visual rankings
+        _gameUI.DisplayGameOver(activePlayers);
 
         // Show game statistics
         await ShowGameStatistics();
 
-        Console.WriteLine("\nThanks for playing Texas Hold'em!");
-        Console.WriteLine("Press any key to exit...");
+        _gameUI.DisplayThanksForPlaying();
         Console.ReadKey();
     }
 
     private async Task ShowGameStatistics()
     {
-        Console.WriteLine("\n📊 GAME STATISTICS:");
-        Console.WriteLine(new string('-', 40));
-        Console.WriteLine($"Total Hands Played: {_gameState.HandNumber}");
-        Console.WriteLine($"Game Duration: {DateTime.Now - _gameState.HandStartTime:hh\\:mm\\:ss}");
-        
+        double? avgPot = null;
+        int? maxPot = null;
+        int? totalBettingRounds = null;
+
         if (_roundHistory.Any())
         {
-            var avgPot = _roundHistory.Average(r => r.TotalPot);
-            var maxPot = _roundHistory.Max(r => r.TotalPot);
-            var totalBettingRounds = _roundHistory.Sum(r => r.BettingSummaries.Count);
-            
-            Console.WriteLine($"Average Pot Size: ${avgPot:F0}");
-            Console.WriteLine($"Largest Pot: ${maxPot}");
-            Console.WriteLine($"Total Betting Rounds: {totalBettingRounds}");
+            avgPot = _roundHistory.Average(r => r.TotalPot);
+            maxPot = _roundHistory.Max(r => r.TotalPot);
+            totalBettingRounds = _roundHistory.Sum(r => r.BettingSummaries.Count);
         }
+
+        var duration = DateTime.Now - _gameState.HandStartTime;
+        _gameUI.DisplayGameStatistics(_gameState.HandNumber, duration, avgPot, maxPot, totalBettingRounds);
 
         await Task.Delay(1000);
     }
@@ -319,10 +263,8 @@ public class TexasHoldemGame
 
         _gameState.SmallBlindAmount = (int)(_gameState.SmallBlindAmount * _config.BlindIncreaseMultiplier);
         _gameState.BigBlindAmount = (int)(_gameState.BigBlindAmount * _config.BlindIncreaseMultiplier);
-        
-        Console.WriteLine("\n📈 BLINDS INCREASED!");
-        Console.WriteLine($"Old blinds: ${oldSmallBlind}/${oldBigBlind}");
-        Console.WriteLine($"New blinds: ${_gameState.SmallBlindAmount}/${_gameState.BigBlindAmount}");
+
+        _gameUI.DisplayBlindsIncrease(oldSmallBlind, oldBigBlind, _gameState.SmallBlindAmount, _gameState.BigBlindAmount);
     }
 
     public void StopGame()
@@ -338,7 +280,7 @@ public class TexasHoldemGame
             HandsPlayed = _gameState.HandNumber,
             PlayersRemaining = _gameState.Players.Count(p => p.IsActive),
             RoundHistory = _roundHistory.ToList(),
-            CurrentBlinds = $"${_gameState.SmallBlindAmount}/${_gameState.BigBlindAmount}"
+            CurrentBlinds = $"€{_gameState.SmallBlindAmount}/€{_gameState.BigBlindAmount}"
         };
     }
 }

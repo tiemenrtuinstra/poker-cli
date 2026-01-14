@@ -34,7 +34,7 @@ public class GameUI
             : "[ Waiting for flop... ]";
         
         Console.WriteLine($"    ║  Community Cards: {communityCardsDisplay.PadRight(36)} ║");
-        Console.WriteLine($"    ║  Pot: ${gameState.TotalPot.ToString().PadRight(49)} ║");
+        Console.WriteLine($"    ║  Pot: €{gameState.TotalPot.ToString().PadRight(49)} ║");
         Console.WriteLine("    ╠════════════════════════════════════════════════════════════╣");
 
         // Display players around the table
@@ -51,7 +51,7 @@ public class GameUI
             var position = GetPositionInfo(i, gameState);
             var status = GetPlayerStatus(player, gameState);
             
-            var playerLine = $"    ║ {position} {player.Name,-15} ${player.Chips,8} {status,-15} ║";
+            var playerLine = $"    ║ {position} {player.Name,-15} €{player.Chips,8} {status,-15} ║";
             Console.WriteLine(playerLine);
         }
     }
@@ -67,7 +67,7 @@ public class GameUI
             Console.WriteLine($"Community Cards: {string.Join(" ", gameState.CommunityCards.Select(FormatCard))}");
         }
         
-        Console.WriteLine($"Pot: ${gameState.TotalPot}");
+        Console.WriteLine($"Pot: €{gameState.TotalPot}");
         Console.WriteLine();
         
         Console.WriteLine("PLAYERS:");
@@ -77,7 +77,7 @@ public class GameUI
             var position = GetPositionInfo(i, gameState);
             var status = GetPlayerStatus(player, gameState);
             
-            Console.WriteLine($"{position} {player.Name} - ${player.Chips} {status}");
+            Console.WriteLine($"{position} {player.Name} - €{player.Chips} {status}");
         }
         Console.WriteLine(new string('=', 60));
     }
@@ -158,7 +158,7 @@ public class GameUI
         Console.WriteLine("\n📋 RECENT ACTIONS:");
         foreach (var action in actions.TakeLast(5))
         {
-            var amountStr = action.Amount > 0 ? $" ${action.Amount}" : "";
+            var amountStr = action.Amount > 0 ? $" €{action.Amount}" : "";
             var timestamp = action.Timestamp.ToString("HH:mm:ss");
             Console.WriteLine($"   [{timestamp}] {action.PlayerId}: {action.Action}{amountStr}");
         }
@@ -167,7 +167,7 @@ public class GameUI
     public void DisplayPotInformation(int totalPot, List<SidePot> sidePots)
     {
         Console.WriteLine($"\n💰 POT INFORMATION:");
-        Console.WriteLine($"   Total Pot: ${totalPot}");
+        Console.WriteLine($"   Total Pot: €{totalPot}");
         
         if (sidePots.Any())
         {
@@ -175,7 +175,7 @@ public class GameUI
             for (int i = 0; i < sidePots.Count; i++)
             {
                 var sidePot = sidePots[i];
-                Console.WriteLine($"     Side Pot {i + 1}: ${sidePot.Amount} ({sidePot.EligiblePlayers.Count} players)");
+                Console.WriteLine($"     Side Pot {i + 1}: €{sidePot.Amount} ({sidePot.EligiblePlayers.Count} players)");
             }
         }
     }
@@ -187,7 +187,7 @@ public class GameUI
         
         foreach (var winner in winners)
         {
-            Console.WriteLine($"🎉 {winner.Player.Name} wins ${winner.Amount} from {winner.PotType}");
+            Console.WriteLine($"🎉 {winner.Player.Name} wins €{winner.Amount} from {winner.PotType}");
             Console.WriteLine($"    with {winner.HandDescription}");
         }
     }
@@ -229,8 +229,8 @@ public class GameUI
         {
             var avgPot = stats.RoundHistory.Average(r => r.TotalPot);
             var maxPot = stats.RoundHistory.Max(r => r.TotalPot);
-            Console.WriteLine($"Average Pot: ${avgPot:F0}");
-            Console.WriteLine($"Largest Pot: ${maxPot}");
+            Console.WriteLine($"Average Pot: €{avgPot:F0}");
+            Console.WriteLine($"Largest Pot: €{maxPot}");
         }
     }
 
@@ -438,7 +438,7 @@ public class GameUI
     private List<string> BuildTableMiddle(List<Card?> communityCards, GameState gameState)
     {
         var lines = new List<string>();
-        var potDisplay = $"POT: ${gameState.TotalPot}";
+        var potDisplay = $"POT: €{gameState.TotalPot}";
         var phaseDisplay = gameState.Phase.ToString().ToUpper();
 
         // Line 0: Phase header (centered)
@@ -631,7 +631,7 @@ public class GameUI
         var position = GetPositionBadge(gameState.Players.IndexOf(player), gameState);
 
         var name = player.Name.Length > 10 ? player.Name[..10] : player.Name;
-        var chips = $"${player.Chips}";
+        var chips = $"€{player.Chips}";
 
         // Build compact display that fits in LeftPlayerWidth
         var indicator = isHighlighted ? "→" : " ";
@@ -646,7 +646,7 @@ public class GameUI
 
         var indicator = isHighlighted ? "→ " : "  ";
         var line1 = $"{indicator}{name}";
-        var line2 = $"  ${player.Chips}";
+        var line2 = $"  €{player.Chips}";
         var line3 = $"  {position} {status}";
 
         return (line1, line2, line3);
@@ -734,7 +734,7 @@ public class GameUI
             Console.Write("━");
             Thread.Sleep(100);
         }
-        Console.WriteLine($"→ {to} (${amount})");
+        Console.WriteLine($"→ {to} (€{amount})");
     }
 
     /// <summary>
@@ -748,7 +748,7 @@ public class GameUI
 
         Console.WriteLine("╔═════════════════════╗");
         Console.WriteLine($"║ {player.Name,-19} ║");
-        Console.WriteLine($"║ 💰 ${player.Chips,-15} ║");
+        Console.WriteLine($"║ 💰 €{player.Chips,-15} ║");
         Console.WriteLine($"║ 🎭 {personality,-16} ║");
         Console.WriteLine($"║ {position} {status,-13} ║");
 
@@ -767,13 +767,13 @@ public class GameUI
     public void DisplayPotBox(int mainPot, List<SidePot>? sidePots = null)
     {
         Console.WriteLine("┌─────────────────────────┐");
-        Console.WriteLine($"│ 💰 MAIN POT: ${mainPot,-10} │");
+        Console.WriteLine($"│ 💰 MAIN POT: €{mainPot,-10} │");
 
         if (sidePots?.Any() == true)
         {
             foreach (var (pot, index) in sidePots.Select((p, i) => (p, i)))
             {
-                Console.WriteLine($"│ 💰 SIDE {index + 1}:   ${pot.Amount,-10} │");
+                Console.WriteLine($"│ 💰 SIDE {index + 1}:   €{pot.Amount,-10} │");
             }
         }
 

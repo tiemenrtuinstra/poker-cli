@@ -11,20 +11,20 @@ public class Round
     private readonly Dealer _dealer;
     private readonly Pot _pot;
     private readonly List<BettingRoundSummary> _bettingSummaries;
-    private readonly GameUI _gameUI;
+    private readonly SpectreGameUI _gameUI;
 
     public int RoundNumber => _gameState.HandNumber;
     public GamePhase CurrentPhase => _gameState.Phase;
     public List<Card> CommunityCards => _gameState.CommunityCards.ToList();
     public bool IsComplete { get; private set; }
 
-    public Round(GameState gameState, Dealer dealer, GameUI? gameUI = null)
+    public Round(GameState gameState, Dealer dealer, SpectreGameUI? gameUI = null)
     {
         _gameState = gameState;
         _dealer = dealer;
         _pot = new Pot();
         _bettingSummaries = new List<BettingRoundSummary>();
-        _gameUI = gameUI ?? new GameUI();
+        _gameUI = gameUI ?? new SpectreGameUI();
         IsComplete = false;
     }
 
@@ -33,13 +33,7 @@ public class Round
         try
         {
             _gameUI.ClearScreen();
-            _gameUI.DrawSeparator('═', 60);
-            _gameUI.ShowColoredMessage($"  🎰 HAND #{_gameState.HandNumber}", ConsoleColor.Cyan);
-            _gameUI.DrawSeparator('═', 60);
-            Console.WriteLine();
-            Console.WriteLine($"💺 Players: {string.Join(", ", _gameState.Players.Where(p => p.IsActive).Select(p => $"{p.Name} (${p.Chips})"))}");
-            Console.WriteLine($"🔘 Dealer: {_gameState.Dealer?.Name}");
-            Console.WriteLine();
+            _gameUI.DisplayHandHeader(_gameState.HandNumber, _gameState.Players, _gameState.Dealer);
             await Task.Delay(1000);
             
             // Pre-flop
@@ -74,9 +68,7 @@ public class Round
         _gameState.Phase = GamePhase.PreFlop;
         _gameState.BettingPhase = BettingPhase.PreFlop;
 
-        Console.WriteLine();
-        _gameUI.ShowColoredMessage("  🃏 PRE-FLOP", ConsoleColor.Yellow);
-        _gameUI.DrawSeparator('-', 40);
+        _gameUI.DisplayPhaseHeader(BettingPhase.PreFlop);
 
         // Deal hole cards with animation
         _gameUI.ShowDealingAnimation("Dealing hole cards", 1500);
@@ -85,13 +77,11 @@ public class Round
         // Post blinds and antes
         PostBlindsAndAntes();
 
-        // Show chip movement for blinds
+        // Show blinds posted with visual display
         var sbPlayer = _gameState.Players[_gameState.SmallBlindPosition];
         var bbPlayer = _gameState.Players[_gameState.BigBlindPosition];
-        _gameUI.ShowChipAnimation(sbPlayer.Name, "POT (SB)", _gameState.SmallBlindAmount);
-        _gameUI.ShowChipAnimation(bbPlayer.Name, "POT (BB)", _gameState.BigBlindAmount);
+        _gameUI.DisplayBlindsPosted(sbPlayer, _gameState.SmallBlindAmount, bbPlayer, _gameState.BigBlindAmount);
 
-        Console.WriteLine();
         _gameUI.DisplayPotBox(_pot.TotalPotAmount);
 
         // Note: Cards are shown privately to each human player when it's their turn
@@ -106,9 +96,7 @@ public class Round
         _gameState.Phase = GamePhase.Flop;
         _gameState.BettingPhase = BettingPhase.Flop;
 
-        Console.WriteLine();
-        _gameUI.ShowColoredMessage("  🎴 FLOP", ConsoleColor.Green);
-        _gameUI.DrawSeparator('-', 40);
+        _gameUI.DisplayPhaseHeader(BettingPhase.Flop);
 
         _gameUI.ShowDealingAnimation("Dealing the flop", 1000);
         var flop = _dealer.DealFlop();
@@ -116,7 +104,6 @@ public class Round
 
         // Show community cards with ASCII art
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.Flop);
-        Console.WriteLine();
 
         await ConductBettingRoundAsync();
     }
@@ -126,9 +113,7 @@ public class Round
         _gameState.Phase = GamePhase.Turn;
         _gameState.BettingPhase = BettingPhase.Turn;
 
-        Console.WriteLine();
-        _gameUI.ShowColoredMessage("  🎴 TURN", ConsoleColor.Magenta);
-        _gameUI.DrawSeparator('-', 40);
+        _gameUI.DisplayPhaseHeader(BettingPhase.Turn);
 
         _gameUI.ShowDealingAnimation("Dealing the turn", 800);
         var turn = _dealer.DealTurn();
@@ -136,7 +121,6 @@ public class Round
 
         // Show community cards with ASCII art
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.Turn);
-        Console.WriteLine();
 
         await ConductBettingRoundAsync();
     }
@@ -146,9 +130,7 @@ public class Round
         _gameState.Phase = GamePhase.River;
         _gameState.BettingPhase = BettingPhase.River;
 
-        Console.WriteLine();
-        _gameUI.ShowColoredMessage("  🎴 RIVER", ConsoleColor.Red);
-        _gameUI.DrawSeparator('-', 40);
+        _gameUI.DisplayPhaseHeader(BettingPhase.River);
 
         _gameUI.ShowDealingAnimation("Dealing the river", 800);
         var river = _dealer.DealRiver();
@@ -156,7 +138,6 @@ public class Round
 
         // Show community cards with ASCII art
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.River);
-        Console.WriteLine();
 
         await ConductBettingRoundAsync();
     }
@@ -180,7 +161,7 @@ public class Round
                 var winner = playersInShowdown.First();
                 var winAmount = _pot.TotalPotAmount;
                 winner.AddChips(winAmount);
-                _gameUI.ShowColoredMessage($"\n  🎉 {winner.Name} wins ${winAmount} by default!", ConsoleColor.Green);
+                _gameUI.ShowColoredMessage($"\n  🎉 {winner.Name} wins €{winAmount} by default!", ConsoleColor.Green);
                 _gameUI.ShowChipAnimation("POT", winner.Name, winAmount);
             }
             return;
@@ -191,36 +172,16 @@ public class Round
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.Showdown);
         Console.WriteLine();
 
-        // Show all remaining players' cards with ASCII art
-        _gameUI.ShowColoredMessage("\n  🃏 Revealing hands...", ConsoleColor.Cyan);
-        _gameUI.DrawSeparator('-', 50);
-
-        foreach (var player in playersInShowdown)
-        {
-            var handResult = HandEvaluator.EvaluateHand(player.HoleCards.Concat(_gameState.CommunityCards));
-            Console.WriteLine($"\n  {player.Name}:");
-            Console.Write("     ");
-            Card.WriteCardsHorizontallyColored(player.HoleCards.Cast<Card?>());
-            _gameUI.ShowColoredMessage($"     → {handResult.Description}", ConsoleColor.White);
-            await Task.Delay(1000);
-        }
+        // Show all remaining players' cards with Spectre panels
+        _gameUI.DisplayShowdownHands(playersInShowdown, _gameState.CommunityCards);
+        await Task.Delay(2000);
 
         // Distribute winnings
         var winners = _pot.DistributePots(playersInShowdown, player =>
             HandEvaluator.EvaluateHand(player.HoleCards.Concat(_gameState.CommunityCards)));
 
-        Console.WriteLine();
-        _gameUI.DrawSeparator('═', 50);
-        _gameUI.ShowColoredMessage("  💰 WINNINGS", ConsoleColor.Green);
-        _gameUI.DrawSeparator('═', 50);
-
-        foreach (var winner in winners)
-        {
-            _gameUI.ShowColoredMessage($"\n  🏆 {winner.Player.Name} wins ${winner.Amount}!", ConsoleColor.Yellow);
-            Console.WriteLine($"     from {winner.PotType}");
-            Console.WriteLine($"     with {winner.HandDescription}");
-            _gameUI.ShowChipAnimation("POT", winner.Player.Name, winner.Amount);
-        }
+        // Display winners
+        _gameUI.DisplayShowdownWinners(winners);
 
         await Task.Delay(3000); // Let players see results
     }
@@ -244,7 +205,7 @@ public class Round
         var activePlayers = BettingLogic.GetActivePlayers(_gameState.Players);
         if (activePlayers.Count <= 1)
         {
-            Console.WriteLine("⏭️  Only one player remaining, skipping betting round");
+            _gameUI.ShowColoredMessage("Only one player remaining, skipping betting round", ConsoleColor.DarkGray);
             return;
         }
 
@@ -274,36 +235,39 @@ public class Round
                 continue;
             }
 
-            Console.WriteLine($"\n👤 {currentPlayer.Name}'s turn (${currentPlayer.Chips} remaining)");
-            
+            _gameUI.DisplayPlayerTurn(currentPlayer, currentPlayer.Chips);
+
             try
             {
                 _gameState.CurrentPlayerPosition = currentPlayerPos;
                 var action = currentPlayer.TakeTurn(_gameState);
-                
+
                 // Validate action
                 if (!BettingLogic.IsValidAction(currentPlayer, action.Action, action.Amount, _gameState))
                 {
-                    Console.WriteLine($"❌ Invalid action by {currentPlayer.Name}: {action.Action} ${action.Amount}");
+                    _gameUI.DisplayPlayerAction(currentPlayer, action.Action, action.Amount, "Invalid action!");
                     continue;
                 }
 
                 // Process the action
                 BettingLogic.ProcessAction(currentPlayer, action, _gameState, _pot);
-                
+
+                // Display the action visually
+                _gameUI.DisplayPlayerAction(currentPlayer, action.Action, action.Amount);
+
                 // Update active players list
                 activePlayers = BettingLogic.GetActivePlayers(_gameState.Players);
-                
+
                 // Check if only one player remains
                 if (activePlayers.Count <= 1)
                 {
-                    Console.WriteLine("⏭️  Only one player remaining, ending betting round");
+                    _gameUI.ShowColoredMessage("Only one player remaining, ending betting round", ConsoleColor.DarkGray);
                     break;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error with {currentPlayer.Name}'s action: {ex.Message}");
+                _gameUI.ShowColoredMessage($"Error with {currentPlayer.Name}'s action: {ex.Message}", ConsoleColor.Red);
             }
 
             // Move to next player
@@ -314,8 +278,8 @@ public class Round
 
         // Save betting round summary
         _bettingSummaries.Add(BettingLogic.GetBettingRoundSummary(_gameState));
-        
-        Console.WriteLine($"💵 Betting complete. Pot: ${_pot.TotalPotAmount}");
+
+        _gameUI.DisplayBettingComplete(_pot.TotalPotAmount);
     }
 
     private void PostBlindsAndAntes()
@@ -369,56 +333,15 @@ public class Round
             var winner = playersInHand.First();
             var winAmount = _pot.TotalPotAmount;
             winner.AddChips(winAmount);
-            Console.WriteLine();
-            _gameUI.ShowColoredMessage($"  🎉 {winner.Name} wins ${winAmount} (everyone else folded)!", ConsoleColor.Green);
-            _gameUI.ShowChipAnimation("POT", winner.Name, winAmount);
+            _gameUI.DisplayFoldWinner(winner, winAmount);
         }
 
         // Eliminate busted players
         var remainingPlayers = BettingLogic.EliminateBustedPlayers(_gameState.Players);
 
-        Console.WriteLine();
-        _gameUI.DrawSeparator('═', 50);
-        _gameUI.ShowColoredMessage("  📊 HAND SUMMARY", ConsoleColor.Cyan);
-        _gameUI.DrawSeparator('═', 50);
+        // Display hand summary with Spectre tables and panels
+        _gameUI.DisplayHandSummary(_pot.TotalPotAmount, _bettingSummaries.Count, _gameState.Players);
 
-        Console.WriteLine($"  Total pot: ${_pot.TotalPotAmount}");
-        Console.WriteLine($"  Betting rounds: {_bettingSummaries.Count}");
-        Console.WriteLine($"  Remaining players: {remainingPlayers.Count}");
-
-        // Show final chip counts in a nice format
-        Console.WriteLine();
-        _gameUI.ShowColoredMessage("  💰 CHIP COUNTS:", ConsoleColor.Yellow);
-        _gameUI.DrawSeparator('-', 40);
-
-        // Sort players by chips (descending) for leaderboard effect
-        var activePlayers = _gameState.Players.Where(p => p.IsActive).OrderByDescending(p => p.Chips).ToList();
-        for (int i = 0; i < activePlayers.Count; i++)
-        {
-            var player = activePlayers[i];
-            var medal = i switch
-            {
-                0 => "🥇",
-                1 => "🥈",
-                2 => "🥉",
-                _ => "  "
-            };
-            Console.WriteLine($"  {medal} {player.Name,-20} ${player.Chips,10}");
-        }
-
-        // Show eliminated players
-        var eliminatedPlayers = _gameState.Players.Where(p => !p.IsActive).ToList();
-        if (eliminatedPlayers.Any())
-        {
-            Console.WriteLine();
-            _gameUI.ShowColoredMessage("  ❌ ELIMINATED:", ConsoleColor.DarkGray);
-            foreach (var player in eliminatedPlayers)
-            {
-                Console.WriteLine($"     {player.Name}");
-            }
-        }
-
-        _gameUI.DrawSeparator('═', 50);
         await Task.Delay(3000); // Give time to review results
     }
 

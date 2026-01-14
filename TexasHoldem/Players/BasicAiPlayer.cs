@@ -129,7 +129,7 @@ public class BasicAiPlayer : AiPlayer
     {
         var personalityStr = Personality?.ToString() ?? "Unknown";
         var statusStr = IsActive ? "Active" : "Inactive";
-        var chipsStr = Chips > 0 ? $"${Chips}" : "Busted";
+        var chipsStr = Chips > 0 ? $"€{Chips}" : "Busted";
         
         return $"{Name} ({personalityStr}) - {chipsStr} [{statusStr}]";
     }

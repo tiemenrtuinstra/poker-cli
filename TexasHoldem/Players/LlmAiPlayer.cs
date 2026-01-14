@@ -152,21 +152,21 @@ Make your decision:";
         }
         else
         {
-            actions.Add($"- call: Match the current bet (costs ${amountToCall})");
+            actions.Add($"- call: Match the current bet (costs €{amountToCall})");
         }
 
         if (gameState.CurrentBet == 0)
         {
-            actions.Add($"- bet: Make an initial bet (minimum ${gameState.BigBlindAmount}, maximum ${Chips})");
+            actions.Add($"- bet: Make an initial bet (minimum €{gameState.BigBlindAmount}, maximum €{Chips})");
         }
         else if (Chips > amountToCall)
         {
             var minRaise = gameState.CurrentBet * 2;
             var maxRaise = Chips + alreadyBet;
-            actions.Add($"- raise: Increase the bet (minimum total ${minRaise}, maximum ${maxRaise})");
+            actions.Add($"- raise: Increase the bet (minimum total €{minRaise}, maximum €{maxRaise})");
         }
 
-        actions.Add($"- allin: Bet all your chips (${Chips})");
+        actions.Add($"- allin: Bet all your chips (€{Chips})");
 
         return string.Join("\n", actions);
     }
@@ -191,7 +191,7 @@ Make your decision:";
                 var actionType = ParseActionType(decision.Action);
                 var amount = CalculateValidAmount(actionType, decision.Amount, gameState);
 
-                Console.WriteLine($"  [{Provider}] {Name} decides: {actionType} {(amount > 0 ? $"${amount}" : "")}");
+                Console.WriteLine($"  [{Provider}] {Name} decides: {actionType} {(amount > 0 ? $"€{amount}" : "")}");
                 if (!string.IsNullOrEmpty(decision.Reasoning))
                 {
                     Console.WriteLine($"  Reasoning: {decision.Reasoning}");
@@ -269,7 +269,7 @@ Make your decision:";
     {
         var personalityStr = Personality?.ToString() ?? "Unknown";
         var statusStr = IsActive ? "Active" : "Inactive";
-        var chipsStr = Chips > 0 ? $"${Chips}" : "Busted";
+        var chipsStr = Chips > 0 ? $"€{Chips}" : "Busted";
         var aiStr = _isLlmEnabled ? $"{Provider} AI" : "Basic AI";
 
         return $"{Name} ({personalityStr}, {aiStr}) - {chipsStr} [{statusStr}]";

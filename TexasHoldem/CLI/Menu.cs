@@ -1,3 +1,5 @@
+using System.Reflection;
+using Spectre.Console;
 using TexasHoldem.Domain;
 using TexasHoldem.Domain.Enums;
 
@@ -18,68 +20,165 @@ public class Menu
     {
         ShowWelcomeMessage();
 
-        var mainChoice = _inputHelper.GetChoiceInput("What would you like to do?", new Dictionary<string, string>
-        {
-            {"Start New Game", "new"},
-            {"Load Preset Configuration", "preset"},
-            {"Load From Configuration", "config"},
-            {"Manage Settings", "settings"},
-            {"View Rules", "rules"},
-            {"Exit", "exit"}
-        }, "new");
+        var mainChoice = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold green]What would you like to do?[/]")
+                .PageSize(8)
+                .HighlightStyle(new Style(Color.Black, Color.Green))
+                .AddChoices(new[]
+                {
+                    "🎲  Start New Game",
+                    "⚡  Quick Start (Default Settings)",
+                    "📁  Load Preset Configuration",
+                    "⚙️   Manage Settings",
+                    "📖  View Rules",
+                    "🚪  Exit"
+                }));
 
-        switch (mainChoice)
+        return mainChoice switch
         {
-            case "new":
-                return ConfigureNewGame();
-            case "preset":
-                return LoadPresetConfiguration();
-            case "config":
-                return LoadFromConfiguration();
-            case "settings":
-                ManageSettings();
-                return SetupGame();
-            case "rules":
-                ShowRules();
-                return SetupGame();
-            case "exit":
-                return null;
-            default:
-                return null;
-        }
+            "🎲  Start New Game" => ConfigureNewGame(),
+            "⚡  Quick Start (Default Settings)" => CreateQuickStartConfig(),
+            "📁  Load Preset Configuration" => LoadPresetConfiguration(),
+            "⚙️   Manage Settings" => ManageSettingsAndReturn(),
+            "📖  View Rules" => ShowRulesAndReturn(),
+            "🚪  Exit" => null,
+            _ => null
+        };
+    }
+
+    private GameConfig? ManageSettingsAndReturn()
+    {
+        ManageSettings();
+        return SetupGame();
+    }
+
+    private GameConfig? ShowRulesAndReturn()
+    {
+        ShowRules();
+        return SetupGame();
+    }
+
+    private GameConfig CreateQuickStartConfig()
+    {
+        // Quick start with sensible defaults
+        return new GameConfig
+        {
+            HumanPlayerCount = 1,
+            AiPlayerCount = 5,
+            HumanPlayerNames = new List<string> { "Player" },
+            StartingChips = 10000,
+            SmallBlind = 50,
+            BigBlind = 100,
+            Ante = 0,
+            MaxHands = 0,
+            UseColors = true,
+            EnableAsciiArt = true,
+            EnableLogging = true
+        };
     }
 
     private void ShowWelcomeMessage()
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
-        Console.WriteLine("║                                                          ║");
-        Console.WriteLine("║            🃏 TEXAS HOLD'EM POKER CLI 🃏               ║");
-        Console.WriteLine("║                                                          ║");
-        Console.WriteLine("║          Welcome to the ultimate poker experience!       ║");
-        Console.WriteLine("║                                                          ║");
-        Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
-        Console.WriteLine();
+        AnsiConsole.Clear();
+
+        var consoleWidth = Console.WindowWidth;
+
+        // ASCII Art Cards Header - centered
+        var cardsLines = new[]
+        {
+            "[red]┌─────┐ ┌─────┐[/] [blue]┌─────┐ ┌─────┐[/]",
+            "[red]│A    │ │K    │[/] [blue]│Q    │ │J    │[/]",
+            "[red]│  ♥  │ │  ♦  │[/] [blue]│  ♠  │ │  ♣  │[/]",
+            "[red]│    A│ │    K│[/] [blue]│    Q│ │    J│[/]",
+            "[red]└─────┘ └─────┘[/] [blue]└─────┘ └─────┘[/]"
+        };
+
+        AnsiConsole.WriteLine();
+        foreach (var line in cardsLines)
+        {
+            var padding = Math.Max(0, (consoleWidth - 31) / 2);
+            AnsiConsole.MarkupLine(new string(' ', padding) + line);
+        }
+
+        AnsiConsole.WriteLine();
+
+        // ASCII Art Title - TEXAS HOLD'EM
+        var titleLines = new[]
+        {
+            "[green] _____   _____  __  __     _      ____      _   _    ___    _       ____    _   _____   __  __[/]",
+            "[green]|_   _| | ____| \\ \\/ /    / \\    / ___|    | | | |  / _ \\  | |     |  _ \\  ( ) | ____| |  \\/  |[/]",
+            "[green]  | |   |  _|    \\  /    / _ \\   \\___ \\    | |_| | | | | | | |     | | | | |/  |  _|   | |\\/| |[/]",
+            "[green]  | |   | |___   /  \\   / ___ \\   ___) |   |  _  | | |_| | | |___  | |_| |     | |___  | |  | |[/]",
+            "[green]  |_|   |_____| /_/\\_\\ /_/   \\_\\ |____/    |_| |_|  \\___/  |_____| |____/      |_____| |_|  |_|[/]"
+        };
+
+        foreach (var line in titleLines)
+        {
+            var padding = Math.Max(0, (consoleWidth - 95) / 2);
+            AnsiConsole.MarkupLine(new string(' ', padding) + line);
+        }
+
+        AnsiConsole.WriteLine();
+
+        // Subtitle - centered
+        var subtitle = "[bold yellow]♠ ♥ ♦ ♣[/]  [italic]The Ultimate CLI Poker Experience[/]  [bold yellow]♣ ♦ ♥ ♠[/]";
+        var subtitlePadding = Math.Max(0, (consoleWidth - 52) / 2);
+        AnsiConsole.MarkupLine(new string(' ', subtitlePadding) + subtitle);
+
+        AnsiConsole.WriteLine();
+
+        // Info table - centered
+        var infoTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold cyan]Feature[/]").Centered())
+            .AddColumn(new TableColumn("[bold cyan]Description[/]").Centered())
+            .Centered();
+
+        infoTable.AddRow("[green]🎮 Single & Multiplayer[/]", "Play solo or with friends (hot-seat)");
+        infoTable.AddRow("[yellow]🤖 Smart AI Opponents[/]", "Multiple AI personalities & LLM support");
+        infoTable.AddRow("[magenta]🏆 Tournament Mode[/]", "Increasing blinds & elimination");
+        infoTable.AddRow("[cyan]📊 Statistics & Replay[/]", "Track your progress & review hands");
+
+        AnsiConsole.Write(infoTable);
+        AnsiConsole.WriteLine();
+
+        // Version info - simple version number
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        var versionStr = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
+        var versionLine = $"[dim]Version {versionStr} • Made with ♥ in The Netherlands[/]";
+        var versionPadding = Math.Max(0, (consoleWidth - 50) / 2);
+        AnsiConsole.MarkupLine(new string(' ', versionPadding) + versionLine);
+        AnsiConsole.WriteLine();
     }
 
     private GameConfig ConfigureNewGame()
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("🎯 GAME SETUP");
-        Console.WriteLine("=============");
-        Console.WriteLine();
+        AnsiConsole.Clear();
+
+        // Header
+        AnsiConsole.Write(new Rule("[bold green]GAME SETUP[/]").RuleStyle("green"));
+        AnsiConsole.WriteLine();
 
         var config = new GameConfig();
 
-        // Player setup
-        Console.WriteLine("👥 PLAYER CONFIGURATION:");
-        config.HumanPlayerCount = _inputHelper.GetIntegerInput("Number of human players", 0, 8, 1);
-        
+        // Player setup section
+        AnsiConsole.Write(new Rule("[bold cyan]👥 Player Configuration[/]").RuleStyle("cyan").LeftJustified());
+
+        config.HumanPlayerCount = AnsiConsole.Prompt(
+            new TextPrompt<int>("[yellow]Number of human players[/] [dim](0-8)[/]:")
+                .DefaultValue(1)
+                .Validate(n => n >= 0 && n <= 8 ? ValidationResult.Success() : ValidationResult.Error("[red]Must be between 0 and 8[/]")));
+
         var maxAiPlayers = 8 - config.HumanPlayerCount;
         if (maxAiPlayers > 0)
         {
             var defaultAi = Math.Min(5, maxAiPlayers);
-            config.AiPlayerCount = _inputHelper.GetIntegerInput($"Number of AI players", 0, maxAiPlayers, defaultAi);
+            config.AiPlayerCount = AnsiConsole.Prompt(
+                new TextPrompt<int>($"[yellow]Number of AI players[/] [dim](0-{maxAiPlayers})[/]:")
+                    .DefaultValue(defaultAi)
+                    .Validate(n => n >= 0 && n <= maxAiPlayers ? ValidationResult.Success() : ValidationResult.Error($"[red]Must be between 0 and {maxAiPlayers}[/]")));
         }
         else
         {
@@ -88,40 +187,74 @@ public class Menu
 
         if (config.TotalPlayers < 2)
         {
-            _inputHelper.ShowError("Need at least 2 total players!");
+            AnsiConsole.MarkupLine("[red]Need at least 2 total players![/]");
+            AnsiConsole.WriteLine();
             return ConfigureNewGame();
         }
 
         // Get human player names
         if (config.HumanPlayerCount > 0)
         {
-            Console.WriteLine("\n📝 PLAYER NAMES:");
-            config.HumanPlayerNames = _inputHelper.GetPlayerNames(config.HumanPlayerCount);
+            AnsiConsole.WriteLine();
+            AnsiConsole.Write(new Rule("[bold cyan]📝 Player Names[/]").RuleStyle("cyan").LeftJustified());
+            config.HumanPlayerNames = new List<string>();
+            for (int i = 0; i < config.HumanPlayerCount; i++)
+            {
+                var name = AnsiConsole.Prompt(
+                    new TextPrompt<string>($"[yellow]Name for Player {i + 1}[/]:")
+                        .DefaultValue($"Player {i + 1}"));
+                config.HumanPlayerNames.Add(name);
+            }
         }
 
         // Chip and blind configuration
-        Console.WriteLine("\n💰 CHIP & BLIND CONFIGURATION:");
-        config.StartingChips = _inputHelper.GetIntegerInput("Starting chips per player", 1000, 1000000, 10000);
-        config.SmallBlind = _inputHelper.GetIntegerInput("Small blind amount", 1, config.StartingChips / 10, 50);
-        config.BigBlind = _inputHelper.GetIntegerInput("Big blind amount", config.SmallBlind + 1, config.StartingChips / 5, config.SmallBlind * 2);
-        config.Ante = _inputHelper.GetIntegerInput("Ante amount (0 for no ante)", 0, config.SmallBlind, 0);
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold cyan]💰 Chips & Blinds[/]").RuleStyle("cyan").LeftJustified());
+
+        config.StartingChips = AnsiConsole.Prompt(
+            new TextPrompt<int>("[yellow]Starting chips per player[/]:")
+                .DefaultValue(10000));
+
+        config.SmallBlind = AnsiConsole.Prompt(
+            new TextPrompt<int>("[yellow]Small blind[/]:")
+                .DefaultValue(50));
+
+        config.BigBlind = AnsiConsole.Prompt(
+            new TextPrompt<int>("[yellow]Big blind[/]:")
+                .DefaultValue(config.SmallBlind * 2));
+
+        config.Ante = AnsiConsole.Prompt(
+            new TextPrompt<int>("[yellow]Ante[/] [dim](0 for none)[/]:")
+                .DefaultValue(0));
 
         // Tournament settings
-        Console.WriteLine("\n🏆 TOURNAMENT SETTINGS:");
-        config.MaxHands = _inputHelper.GetIntegerInput("Maximum hands (0 for unlimited)", 0, 1000, 0);
-        config.IsBlindIncreaseEnabled = _inputHelper.GetBooleanInput("Enable blind increases?", false);
-        
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold cyan]🏆 Tournament Settings[/]").RuleStyle("cyan").LeftJustified());
+
+        config.MaxHands = AnsiConsole.Prompt(
+            new TextPrompt<int>("[yellow]Max hands[/] [dim](0 for unlimited)[/]:")
+                .DefaultValue(0));
+
+        config.IsBlindIncreaseEnabled = AnsiConsole.Confirm("[yellow]Enable blind increases?[/]", false);
+
         if (config.IsBlindIncreaseEnabled)
         {
-            config.BlindIncreaseInterval = _inputHelper.GetIntegerInput("Increase blinds every X hands", 1, 100, 10);
-            config.BlindIncreaseMultiplier = _inputHelper.GetDoubleInput("Blind increase multiplier", 1.1, 3.0, 1.5);
+            config.BlindIncreaseInterval = AnsiConsole.Prompt(
+                new TextPrompt<int>("[yellow]Increase blinds every X hands[/]:")
+                    .DefaultValue(10));
+
+            config.BlindIncreaseMultiplier = AnsiConsole.Prompt(
+                new TextPrompt<double>("[yellow]Blind multiplier[/]:")
+                    .DefaultValue(1.5));
         }
 
         // Display settings
-        Console.WriteLine("\n🎨 DISPLAY SETTINGS:");
-        config.UseColors = _inputHelper.GetBooleanInput("Use colors for cards and text?", true);
-        config.EnableAsciiArt = _inputHelper.GetBooleanInput("Enable ASCII art table?", true);
-        config.EnableLogging = _inputHelper.GetBooleanInput("Enable game logging?", true);
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold cyan]🎨 Display Settings[/]").RuleStyle("cyan").LeftJustified());
+
+        config.UseColors = AnsiConsole.Confirm("[yellow]Use colors?[/]", true);
+        config.EnableAsciiArt = AnsiConsole.Confirm("[yellow]Enable ASCII art?[/]", true);
+        config.EnableLogging = AnsiConsole.Confirm("[yellow]Enable logging?[/]", true);
 
         // AI settings are loaded from .env and config.json
         var defaultConfig = _configManager.CreateGameConfigFromDefaults();
@@ -134,36 +267,38 @@ public class Menu
         config.OpenAiModel = defaultConfig.OpenAiModel;
 
         // Show AI configuration info
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold cyan]🤖 AI Configuration[/]").RuleStyle("cyan").LeftJustified());
+
         var configuredProviders = config.GetConfiguredProviders();
-        Console.WriteLine("\n🤖 AI CONFIGURATION:");
         if (configuredProviders.Any())
         {
-            Console.WriteLine($"   API keys found for: {string.Join(", ", configuredProviders)}");
+            AnsiConsole.MarkupLine($"[green]✓[/] API keys found: [bold]{string.Join(", ", configuredProviders)}[/]");
 
-            // Show which of the enabled providers actually have keys
             var activeProviders = config.EnabledProviders
                 .Where(p => p == Domain.Enums.AiProvider.None || configuredProviders.Contains(p))
                 .ToList();
 
             if (activeProviders.Any(p => p != Domain.Enums.AiProvider.None))
             {
-                Console.WriteLine($"   Will use: {string.Join(", ", activeProviders.Where(p => p != Domain.Enums.AiProvider.None))}");
+                AnsiConsole.MarkupLine($"[green]✓[/] Will use: [bold]{string.Join(", ", activeProviders.Where(p => p != Domain.Enums.AiProvider.None))}[/]");
             }
             else
             {
-                Console.WriteLine("   Using: Basic AI (enabled providers have no API keys)");
+                AnsiConsole.MarkupLine("[yellow]![/] Using: Basic AI (enabled providers have no API keys)");
             }
         }
         else
         {
-            Console.WriteLine("   No API keys found - using basic AI");
-            Console.WriteLine("   (Add keys to .env file to enable LLM players)");
+            AnsiConsole.MarkupLine("[yellow]![/] No API keys found - using basic AI");
+            AnsiConsole.MarkupLine("[dim]   Add keys to .env file to enable LLM players[/]");
         }
 
         // Confirm configuration
         ShowConfigurationSummary(config);
-        
-        var confirmed = _inputHelper.GetBooleanInput("Start game with this configuration?", true);
+
+        AnsiConsole.WriteLine();
+        var confirmed = AnsiConsole.Confirm("[bold green]Start game with this configuration?[/]", true);
         if (!confirmed)
         {
             return ConfigureNewGame();
@@ -174,35 +309,46 @@ public class Menu
 
     private GameConfig? LoadPresetConfiguration()
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("⚙️  PRESET CONFIGURATIONS");
-        Console.WriteLine("========================");
-        Console.WriteLine();
+        AnsiConsole.Clear();
+        AnsiConsole.Write(new Rule("[bold green]⚙️ Preset Configurations[/]").RuleStyle("green"));
+        AnsiConsole.WriteLine();
 
-        var presets = new Dictionary<string, GameConfig>
-        {
-            {"Quick Game (1v1)", CreateQuickGameConfig()},
-            {"Classic Tournament (6 players)", CreateClassicTournamentConfig()},
-            {"High Stakes (4 players)", CreateHighStakesConfig()},
-            {"Beginner Friendly", CreateBeginnerFriendlyConfig()},
-            {"AI Showcase (8 AI players)", CreateAiShowcaseConfig()},
-            {"Back to Main Menu", null!}
-        };
+        var choice = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold cyan]Select a preset configuration:[/]")
+                .PageSize(8)
+                .HighlightStyle(new Style(Color.Black, Color.Cyan1))
+                .AddChoices(new[]
+                {
+                    "⚡  Quick Game (1v1)",
+                    "🏆  Classic Tournament (6 players)",
+                    "💎  High Stakes (4 players)",
+                    "🌱  Beginner Friendly",
+                    "🤖  AI Showcase (8 AI players)",
+                    "🔙  Back to Main Menu"
+                }));
 
-        var choice = _inputHelper.GetChoiceInput("Select a preset configuration:", 
-            presets.ToDictionary(p => p.Key, p => p.Key), "Quick Game (1v1)");
-
-        if (choice == "Back to Main Menu")
+        if (choice == "🔙  Back to Main Menu")
         {
             return SetupGame();
         }
 
-        var config = presets[choice];
+        var config = choice switch
+        {
+            "⚡  Quick Game (1v1)" => CreateQuickGameConfig(),
+            "🏆  Classic Tournament (6 players)" => CreateClassicTournamentConfig(),
+            "💎  High Stakes (4 players)" => CreateHighStakesConfig(),
+            "🌱  Beginner Friendly" => CreateBeginnerFriendlyConfig(),
+            "🤖  AI Showcase (8 AI players)" => CreateAiShowcaseConfig(),
+            _ => null
+        };
+
         if (config == null) return SetupGame();
 
         ShowConfigurationSummary(config);
-        
-        var confirmed = _inputHelper.GetBooleanInput("Start game with this preset?", true);
+
+        AnsiConsole.WriteLine();
+        var confirmed = AnsiConsole.Confirm("[bold green]Start game with this preset?[/]", true);
         if (!confirmed)
         {
             return LoadPresetConfiguration();
@@ -211,11 +357,19 @@ public class Menu
         // Allow customization of player names for human players
         if (config.HumanPlayerCount > 0)
         {
-            var customizeNames = _inputHelper.GetBooleanInput("Customize player names?", false);
+            var customizeNames = AnsiConsole.Confirm("[yellow]Customize player names?[/]", false);
             if (customizeNames)
             {
-                Console.WriteLine("\n📝 CUSTOMIZE PLAYER NAMES:");
-                config.HumanPlayerNames = _inputHelper.GetPlayerNames(config.HumanPlayerCount);
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write(new Rule("[bold cyan]📝 Customize Player Names[/]").RuleStyle("cyan").LeftJustified());
+                config.HumanPlayerNames = new List<string>();
+                for (int i = 0; i < config.HumanPlayerCount; i++)
+                {
+                    var name = AnsiConsole.Prompt(
+                        new TextPrompt<string>($"[yellow]Name for Player {i + 1}[/]:")
+                            .DefaultValue($"Player {i + 1}"));
+                    config.HumanPlayerNames.Add(name);
+                }
             }
         }
 
@@ -224,111 +378,164 @@ public class Menu
 
     private void ShowConfigurationSummary(GameConfig config)
     {
-        Console.WriteLine("\n📊 CONFIGURATION SUMMARY:");
-        Console.WriteLine(new string('-', 40));
-        Console.WriteLine($"Players: {config.HumanPlayerCount} human, {config.AiPlayerCount} AI ({config.TotalPlayers} total)");
-        
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold yellow]📊 Configuration Summary[/]").RuleStyle("yellow"));
+        AnsiConsole.WriteLine();
+
+        // Create a nice summary table
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Green)
+            .AddColumn(new TableColumn("[bold]Setting[/]"))
+            .AddColumn(new TableColumn("[bold]Value[/]"));
+
+        // Players
+        table.AddRow("[cyan]Players[/]", $"{config.HumanPlayerCount} human, {config.AiPlayerCount} AI ([bold]{config.TotalPlayers}[/] total)");
+
         if (config.HumanPlayerNames?.Any() == true)
         {
-            Console.WriteLine($"Human players: {string.Join(", ", config.HumanPlayerNames)}");
+            table.AddRow("[cyan]Human Players[/]", string.Join(", ", config.HumanPlayerNames));
         }
-        
-        Console.WriteLine($"Starting chips: ${config.StartingChips:N0} per player");
-        Console.WriteLine($"Blinds: ${config.SmallBlind}/{config.BigBlind}");
-        
+
+        // Chips & Blinds
+        table.AddRow("[green]Starting Chips[/]", $"[bold]€{config.StartingChips:N0}[/] per player");
+        table.AddRow("[green]Blinds[/]", $"[bold]€{config.SmallBlind}/€{config.BigBlind}[/]");
+
         if (config.Ante > 0)
         {
-            Console.WriteLine($"Ante: ${config.Ante}");
+            table.AddRow("[green]Ante[/]", $"€{config.Ante}");
         }
-        
-        if (config.MaxHands > 0)
-        {
-            Console.WriteLine($"Maximum hands: {config.MaxHands}");
-        }
-        else
-        {
-            Console.WriteLine("Hands: Unlimited (play until one winner)");
-        }
-        
+
+        // Tournament
+        var handsDisplay = config.MaxHands > 0 ? $"{config.MaxHands} hands" : "[dim]Unlimited[/]";
+        table.AddRow("[magenta]Max Hands[/]", handsDisplay);
+
         if (config.IsBlindIncreaseEnabled)
         {
-            Console.WriteLine($"Blinds increase: Every {config.BlindIncreaseInterval} hands by {config.BlindIncreaseMultiplier:F1}x");
+            table.AddRow("[magenta]Blind Increase[/]", $"Every {config.BlindIncreaseInterval} hands × {config.BlindIncreaseMultiplier:F1}");
         }
-        
-        Console.WriteLine($"Colors: {(config.UseColors ? "Enabled" : "Disabled")}");
-        Console.WriteLine($"ASCII Art: {(config.EnableAsciiArt ? "Enabled" : "Disabled")}");
-        Console.WriteLine($"Logging: {(config.EnableLogging ? "Enabled" : "Disabled")}");
 
-        // Show AI provider info
+        // Display settings
+        table.AddRow("[yellow]Colors[/]", config.UseColors ? "[green]✓[/]" : "[red]✗[/]");
+        table.AddRow("[yellow]ASCII Art[/]", config.EnableAsciiArt ? "[green]✓[/]" : "[red]✗[/]");
+        table.AddRow("[yellow]Logging[/]", config.EnableLogging ? "[green]✓[/]" : "[red]✗[/]");
+
+        // AI provider info
         var configuredProviders = config.GetConfiguredProviders();
         if (configuredProviders.Any())
         {
-            Console.WriteLine($"AI Providers: {string.Join(", ", config.EnabledProviders.Where(p => configuredProviders.Contains(p) || p == Domain.Enums.AiProvider.None))}");
+            var providers = string.Join(", ", config.EnabledProviders.Where(p => configuredProviders.Contains(p) || p == Domain.Enums.AiProvider.None));
+            table.AddRow("[blue]AI Providers[/]", providers);
         }
         else
         {
-            Console.WriteLine("AI: Basic (no LLM configured)");
+            table.AddRow("[blue]AI[/]", "[dim]Basic (no LLM)[/]");
         }
 
-        Console.WriteLine();
+        AnsiConsole.Write(table);
     }
 
     private void ShowRules()
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("📖 TEXAS HOLD'EM POKER RULES");
-        Console.WriteLine("=============================");
-        Console.WriteLine();
-        
-        Console.WriteLine("🎯 OBJECTIVE:");
-        Console.WriteLine("Win chips by making the best 5-card poker hand using your 2 hole cards");
-        Console.WriteLine("and the 5 community cards, or by making all other players fold.");
-        Console.WriteLine();
-        
-        Console.WriteLine("🃏 HAND RANKINGS (highest to lowest):");
-        Console.WriteLine("1. Royal Flush    - A, K, Q, J, 10 all same suit");
-        Console.WriteLine("2. Straight Flush - Five cards in sequence, same suit");
-        Console.WriteLine("3. Four of a Kind - Four cards of same rank");
-        Console.WriteLine("4. Full House     - Three of a kind + pair");
-        Console.WriteLine("5. Flush          - Five cards same suit");
-        Console.WriteLine("6. Straight       - Five cards in sequence");
-        Console.WriteLine("7. Three of Kind  - Three cards of same rank");
-        Console.WriteLine("8. Two Pair       - Two pairs of different ranks");
-        Console.WriteLine("9. One Pair       - Two cards of same rank");
-        Console.WriteLine("10. High Card     - Highest single card");
-        Console.WriteLine();
-        
-        Console.WriteLine("🎲 BETTING ROUNDS:");
-        Console.WriteLine("1. Pre-flop: After hole cards are dealt");
-        Console.WriteLine("2. Flop:     After first 3 community cards");
-        Console.WriteLine("3. Turn:     After 4th community card");
-        Console.WriteLine("4. River:    After 5th community card");
-        Console.WriteLine("5. Showdown: Compare hands if multiple players remain");
-        Console.WriteLine();
-        
-        Console.WriteLine("💰 BETTING ACTIONS:");
-        Console.WriteLine("• Fold:  Give up your hand");
-        Console.WriteLine("• Check: Pass action (no bet required)");
-        Console.WriteLine("• Call:  Match current bet");
-        Console.WriteLine("• Bet:   Make first bet in a round");
-        Console.WriteLine("• Raise: Increase current bet");
-        Console.WriteLine("• All-in: Bet all remaining chips");
-        Console.WriteLine();
-        
-        Console.WriteLine("🤖 AI PERSONALITIES:");
-        Console.WriteLine("Each AI player has a unique personality affecting their play style:");
-        Console.WriteLine("• Tight:    Plays only premium hands");
-        Console.WriteLine("• Loose:    Plays many hands");
-        Console.WriteLine("• Aggressive: Bets and raises frequently");
-        Console.WriteLine("• Passive:   Calls more than betting");
-        Console.WriteLine("• Bluffer:   Bluffs with weak hands");
-        Console.WriteLine("• Fish:     Makes poor decisions (beginner)");
-        Console.WriteLine("• Shark:    Skilled, optimal play");
-        Console.WriteLine("• Maniac:   Very aggressive, unpredictable");
-        Console.WriteLine("• Nit:      Extremely tight play");
-        Console.WriteLine("• Calling Station: Calls almost everything");
-        Console.WriteLine();
-        
+        AnsiConsole.Clear();
+
+        AnsiConsole.Write(
+            new FigletText("RULES")
+                .Color(Color.Yellow)
+                .Centered());
+
+        AnsiConsole.Write(new Rule("[bold yellow]Texas Hold'em Poker Rules[/]").RuleStyle("yellow"));
+        AnsiConsole.WriteLine();
+
+        // Objective
+        var objectivePanel = new Panel(
+            new Markup("Win chips by making the [bold]best 5-card poker hand[/] using your 2 hole cards\nand the 5 community cards, or by making all other players [bold]fold[/]."))
+            .Header("[bold green]OBJECTIVE[/]")
+            .Border(BoxBorder.Rounded)
+            .BorderColor(Color.Green);
+        AnsiConsole.Write(objectivePanel);
+        AnsiConsole.WriteLine();
+
+        // Hand Rankings
+        AnsiConsole.Write(new Rule("[bold cyan]Hand Rankings (highest to lowest)[/]").RuleStyle("cyan").LeftJustified());
+
+        var handTable = new Table()
+            .Border(TableBorder.Simple)
+            .AddColumn(new TableColumn("[bold]Rank[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Hand[/]"))
+            .AddColumn(new TableColumn("[bold]Description[/]"));
+
+        handTable.AddRow("[yellow]1[/]", "[bold]Royal Flush[/]", "A, K, Q, J, 10 all same suit");
+        handTable.AddRow("[yellow]2[/]", "[bold]Straight Flush[/]", "Five cards in sequence, same suit");
+        handTable.AddRow("[yellow]3[/]", "[bold]Four of a Kind[/]", "Four cards of same rank");
+        handTable.AddRow("[yellow]4[/]", "[bold]Full House[/]", "Three of a kind + pair");
+        handTable.AddRow("[yellow]5[/]", "[bold]Flush[/]", "Five cards same suit");
+        handTable.AddRow("[yellow]6[/]", "[bold]Straight[/]", "Five cards in sequence");
+        handTable.AddRow("[yellow]7[/]", "[bold]Three of a Kind[/]", "Three cards of same rank");
+        handTable.AddRow("[yellow]8[/]", "[bold]Two Pair[/]", "Two pairs of different ranks");
+        handTable.AddRow("[yellow]9[/]", "[bold]One Pair[/]", "Two cards of same rank");
+        handTable.AddRow("[yellow]10[/]", "[bold]High Card[/]", "Highest single card");
+
+        AnsiConsole.Write(handTable);
+        AnsiConsole.WriteLine();
+
+        // Betting Rounds
+        AnsiConsole.Write(new Rule("[bold magenta]Betting Rounds[/]").RuleStyle("magenta").LeftJustified());
+
+        var roundsTable = new Table()
+            .Border(TableBorder.Simple)
+            .AddColumn("[bold]Round[/]")
+            .AddColumn("[bold]When[/]");
+
+        roundsTable.AddRow("[cyan]Pre-flop[/]", "After hole cards are dealt");
+        roundsTable.AddRow("[cyan]Flop[/]", "After first 3 community cards");
+        roundsTable.AddRow("[cyan]Turn[/]", "After 4th community card");
+        roundsTable.AddRow("[cyan]River[/]", "After 5th community card");
+        roundsTable.AddRow("[cyan]Showdown[/]", "Compare hands if multiple players remain");
+
+        AnsiConsole.Write(roundsTable);
+        AnsiConsole.WriteLine();
+
+        // Betting Actions
+        AnsiConsole.Write(new Rule("[bold green]Betting Actions[/]").RuleStyle("green").LeftJustified());
+
+        var actionsTable = new Table()
+            .Border(TableBorder.Simple)
+            .AddColumn("[bold]Action[/]")
+            .AddColumn("[bold]Description[/]");
+
+        actionsTable.AddRow("[red]Fold[/]", "Give up your hand");
+        actionsTable.AddRow("[dim]Check[/]", "Pass action (no bet required)");
+        actionsTable.AddRow("[yellow]Call[/]", "Match current bet");
+        actionsTable.AddRow("[green]Bet[/]", "Make first bet in a round");
+        actionsTable.AddRow("[cyan]Raise[/]", "Increase current bet");
+        actionsTable.AddRow("[magenta]All-in[/]", "Bet all remaining chips");
+
+        AnsiConsole.Write(actionsTable);
+        AnsiConsole.WriteLine();
+
+        // AI Personalities
+        AnsiConsole.Write(new Rule("[bold blue]AI Personalities[/]").RuleStyle("blue").LeftJustified());
+        AnsiConsole.MarkupLine("[dim]Each AI player has a unique personality affecting their play style:[/]");
+        AnsiConsole.WriteLine();
+
+        var personalityTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Blue)
+            .AddColumn("[bold]Personality[/]")
+            .AddColumn("[bold]Play Style[/]");
+
+        personalityTable.AddRow("[cyan]Tight[/]", "Plays only premium hands");
+        personalityTable.AddRow("[green]Loose[/]", "Plays many hands");
+        personalityTable.AddRow("[red]Aggressive[/]", "Bets and raises frequently");
+        personalityTable.AddRow("[dim]Passive[/]", "Calls more than betting");
+        personalityTable.AddRow("[magenta]Bluffer[/]", "Bluffs with weak hands");
+        personalityTable.AddRow("[yellow]Shark[/]", "Skilled, optimal play");
+        personalityTable.AddRow("[orange1]Maniac[/]", "Very aggressive, unpredictable");
+
+        AnsiConsole.Write(personalityTable);
+        AnsiConsole.WriteLine();
+
         _inputHelper.PressAnyKeyToContinue();
     }
 
@@ -460,34 +667,47 @@ public class Menu
     {
         while (true)
         {
-            _inputHelper.ClearScreen();
-            Console.WriteLine("⚙️  SETTINGS MANAGEMENT");
-            Console.WriteLine("=======================");
-            
-            var choice = _inputHelper.GetChoiceInput("What would you like to do?", new Dictionary<string, string>
-            {
-                {"View Current Settings", "view"},
-                {"Update Game Defaults", "update"},
-                {"Reset to Defaults", "reset"},
-                {"Back to Main Menu", "back"}
-            }, "view");
+            AnsiConsole.Clear();
+
+            AnsiConsole.Write(
+                new FigletText("SETTINGS")
+                    .Color(Color.Grey)
+                    .Centered());
+
+            AnsiConsole.Write(new Rule("[bold grey]Settings Management[/]").RuleStyle("grey"));
+            AnsiConsole.WriteLine();
+
+            var choice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[bold green]What would you like to do?[/]")
+                    .PageSize(8)
+                    .HighlightStyle(new Style(Color.Black, Color.Grey))
+                    .AddChoices(new[]
+                    {
+                        "View Current Settings",
+                        "Update Game Defaults",
+                        "Reset to Defaults",
+                        "Back to Main Menu"
+                    }));
 
             switch (choice)
             {
-                case "view":
+                case "View Current Settings":
                     _configManager.ShowCurrentConfiguration();
-                    _inputHelper.PressAnyKeyToContinue("\nPress any key to continue...");
+                    _inputHelper.PressAnyKeyToContinue();
                     break;
-                case "update":
+                case "Update Game Defaults":
                     UpdateGameDefaults();
                     break;
-                case "reset":
-                    if (_inputHelper.GetBooleanInput("Are you sure you want to reset all settings to defaults?"))
+                case "Reset to Defaults":
+                    if (AnsiConsole.Confirm("[yellow]Are you sure you want to reset all settings to defaults?[/]", false))
                     {
                         _configManager.ResetToDefaults();
+                        AnsiConsole.MarkupLine("[green]Settings reset to defaults![/]");
+                        _inputHelper.PressAnyKeyToContinue();
                     }
                     break;
-                case "back":
+                case "Back to Main Menu":
                     return;
             }
         }
@@ -495,20 +715,21 @@ public class Menu
 
     private void UpdateGameDefaults()
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("🔧 UPDATE GAME DEFAULTS");
-        Console.WriteLine("=======================");
-        
+        AnsiConsole.Clear();
+
+        AnsiConsole.Write(new Rule("[bold cyan]Update Game Defaults[/]").RuleStyle("cyan"));
+        AnsiConsole.WriteLine();
+
         var currentConfig = _configManager.CreateGameConfigFromDefaults();
         var updatedConfig = ConfigureNewGameFromTemplate(currentConfig);
-        
+
         if (updatedConfig != null)
         {
             _configManager.UpdateGameDefaults(updatedConfig);
-            Console.WriteLine("✅ Game defaults updated and saved!");
+            AnsiConsole.MarkupLine("[green]Game defaults updated and saved![/]");
         }
-        
-        _inputHelper.PressAnyKeyToContinue("\nPress any key to continue...");
+
+        _inputHelper.PressAnyKeyToContinue();
     }
 
     private GameConfig ConfigureNewGameFromTemplate(GameConfig template)
@@ -537,35 +758,83 @@ public class Menu
 
     private GameConfig ConfigureGameSettings(GameConfig config)
     {
-        _inputHelper.ClearScreen();
-        Console.WriteLine("🎯 GAME CONFIGURATION");
-        Console.WriteLine("=====================");
+        AnsiConsole.Clear();
 
-        // Players
-        config.HumanPlayerCount = _inputHelper.GetIntegerInput($"Number of human players (1-8, current: {config.HumanPlayerCount})", 1, 8, config.HumanPlayerCount);
+        AnsiConsole.Write(new Rule("[bold cyan]Game Configuration[/]").RuleStyle("cyan"));
+        AnsiConsole.WriteLine();
+
+        // Players section
+        AnsiConsole.Write(new Rule("[bold yellow]Player Settings[/]").RuleStyle("yellow").LeftJustified());
+
+        config.HumanPlayerCount = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Number of human players[/] [dim](current: {config.HumanPlayerCount})[/]:")
+                .DefaultValue(config.HumanPlayerCount)
+                .Validate(n => n >= 0 && n <= 8 ? ValidationResult.Success() : ValidationResult.Error("[red]Must be between 0 and 8[/]")));
+
         var maxAi = Math.Min(8 - config.HumanPlayerCount, 7);
-        config.AiPlayerCount = _inputHelper.GetIntegerInput($"Number of AI players (1-{maxAi}, current: {config.AiPlayerCount})", 1, maxAi, config.AiPlayerCount);
+        config.AiPlayerCount = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Number of AI players[/] [dim](current: {config.AiPlayerCount})[/]:")
+                .DefaultValue(config.AiPlayerCount)
+                .Validate(n => n >= 0 && n <= maxAi ? ValidationResult.Success() : ValidationResult.Error($"[red]Must be between 0 and {maxAi}[/]")));
 
-        // Chips and blinds
-        config.StartingChips = _inputHelper.GetIntegerInput($"Starting chips per player (current: {config.StartingChips:N0})", 1000, 1000000, config.StartingChips);
-        config.SmallBlind = _inputHelper.GetIntegerInput($"Small blind (current: {config.SmallBlind})", 1, config.StartingChips / 100, config.SmallBlind);
-        config.BigBlind = _inputHelper.GetIntegerInput($"Big blind (current: {config.BigBlind})", config.SmallBlind, config.StartingChips / 50, config.BigBlind);
-        config.Ante = _inputHelper.GetIntegerInput($"Ante per hand (current: {config.Ante})", 0, config.BigBlind, config.Ante);
+        AnsiConsole.WriteLine();
+
+        // Chips and blinds section
+        AnsiConsole.Write(new Rule("[bold green]Chips & Blinds[/]").RuleStyle("green").LeftJustified());
+
+        config.StartingChips = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Starting chips per player[/] [dim](current: €{config.StartingChips:N0})[/]:")
+                .DefaultValue(config.StartingChips)
+                .Validate(n => n >= 1000 && n <= 1000000 ? ValidationResult.Success() : ValidationResult.Error("[red]Must be between 1,000 and 1,000,000[/]")));
+
+        config.SmallBlind = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Small blind[/] [dim](current: €{config.SmallBlind})[/]:")
+                .DefaultValue(config.SmallBlind)
+                .Validate(n => n >= 1 && n <= config.StartingChips / 100 ? ValidationResult.Success() : ValidationResult.Error("[red]Invalid small blind[/]")));
+
+        config.BigBlind = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Big blind[/] [dim](current: €{config.BigBlind})[/]:")
+                .DefaultValue(config.BigBlind)
+                .Validate(n => n >= config.SmallBlind && n <= config.StartingChips / 50 ? ValidationResult.Success() : ValidationResult.Error("[red]Invalid big blind[/]")));
+
+        config.Ante = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Ante per hand[/] [dim](current: €{config.Ante})[/]:")
+                .DefaultValue(config.Ante)
+                .Validate(n => n >= 0 && n <= config.BigBlind ? ValidationResult.Success() : ValidationResult.Error("[red]Invalid ante[/]")));
+
+        AnsiConsole.WriteLine();
 
         // Tournament settings
-        config.IsBlindIncreaseEnabled = _inputHelper.GetBooleanInput($"Enable blind increases? (current: {config.IsBlindIncreaseEnabled})", config.IsBlindIncreaseEnabled);
+        AnsiConsole.Write(new Rule("[bold magenta]Tournament Settings[/]").RuleStyle("magenta").LeftJustified());
+
+        config.IsBlindIncreaseEnabled = AnsiConsole.Confirm($"[yellow]Enable blind increases?[/] [dim](current: {config.IsBlindIncreaseEnabled})[/]", config.IsBlindIncreaseEnabled);
+
         if (config.IsBlindIncreaseEnabled)
         {
-            config.BlindIncreaseInterval = _inputHelper.GetIntegerInput($"Hands between blind increases (current: {config.BlindIncreaseInterval})", 5, 100, config.BlindIncreaseInterval);
-            config.BlindIncreaseMultiplier = _inputHelper.GetDoubleInput($"Blind increase multiplier (current: {config.BlindIncreaseMultiplier:F1})", 1.1, 5.0, config.BlindIncreaseMultiplier);
+            config.BlindIncreaseInterval = AnsiConsole.Prompt(
+                new TextPrompt<int>($"[yellow]Hands between blind increases[/] [dim](current: {config.BlindIncreaseInterval})[/]:")
+                    .DefaultValue(config.BlindIncreaseInterval)
+                    .Validate(n => n >= 5 && n <= 100 ? ValidationResult.Success() : ValidationResult.Error("[red]Must be between 5 and 100[/]")));
+
+            config.BlindIncreaseMultiplier = AnsiConsole.Prompt(
+                new TextPrompt<double>($"[yellow]Blind increase multiplier[/] [dim](current: {config.BlindIncreaseMultiplier:F1})[/]:")
+                    .DefaultValue(config.BlindIncreaseMultiplier)
+                    .Validate(n => n >= 1.1 && n <= 5.0 ? ValidationResult.Success() : ValidationResult.Error("[red]Must be between 1.1 and 5.0[/]")));
         }
 
-        config.MaxHands = _inputHelper.GetIntegerInput($"Maximum hands (0 for unlimited, current: {config.MaxHands})", 0, 1000, config.MaxHands);
+        config.MaxHands = AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]Maximum hands[/] [dim](0 = unlimited, current: {config.MaxHands})[/]:")
+                .DefaultValue(config.MaxHands)
+                .Validate(n => n >= 0 && n <= 1000 ? ValidationResult.Success() : ValidationResult.Error("[red]Must be between 0 and 1000[/]")));
 
-        // Display and features
-        config.UseColors = _inputHelper.GetBooleanInput($"Use colored output? (current: {config.UseColors})", config.UseColors);
-        config.EnableAsciiArt = _inputHelper.GetBooleanInput($"Enable ASCII art? (current: {config.EnableAsciiArt})", config.EnableAsciiArt);
-        config.EnableLogging = _inputHelper.GetBooleanInput($"Enable game logging? (current: {config.EnableLogging})", config.EnableLogging);
+        AnsiConsole.WriteLine();
+
+        // Display settings
+        AnsiConsole.Write(new Rule("[bold blue]Display Settings[/]").RuleStyle("blue").LeftJustified());
+
+        config.UseColors = AnsiConsole.Confirm($"[yellow]Use colored output?[/] [dim](current: {config.UseColors})[/]", config.UseColors);
+        config.EnableAsciiArt = AnsiConsole.Confirm($"[yellow]Enable ASCII art?[/] [dim](current: {config.EnableAsciiArt})[/]", config.EnableAsciiArt);
+        config.EnableLogging = AnsiConsole.Confirm($"[yellow]Enable game logging?[/] [dim](current: {config.EnableLogging})[/]", config.EnableLogging);
 
         return config;
     }

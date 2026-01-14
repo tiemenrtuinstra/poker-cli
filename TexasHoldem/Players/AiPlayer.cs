@@ -227,6 +227,6 @@ public abstract class AiPlayer : IPlayer
     public override string ToString()
     {
         var personalityStr = Personality?.ToString() ?? "Unknown";
-        return $"{Name} ({personalityStr}) - ${Chips}";
+        return $"{Name} ({personalityStr}) - €{Chips}";
     }
 }

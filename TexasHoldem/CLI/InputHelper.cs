@@ -1,231 +1,182 @@
+using Spectre.Console;
+
 namespace TexasHoldem.CLI;
 
 public class InputHelper
 {
     public int GetIntegerInput(string prompt, int min = int.MinValue, int max = int.MaxValue, int defaultValue = 0)
     {
-        while (true)
-        {
-            Console.Write($"{prompt} (default {defaultValue}): ");
-            var input = Console.ReadLine()?.Trim();
-            
-            if (string.IsNullOrEmpty(input))
-            {
-                if (defaultValue >= min && defaultValue <= max)
-                    return defaultValue;
-                Console.WriteLine($"❌ Default value {defaultValue} is outside valid range [{min}-{max}]");
-                continue;
-            }
-            
-            if (int.TryParse(input, out int result))
-            {
-                if (result >= min && result <= max)
+        return AnsiConsole.Prompt(
+            new TextPrompt<int>($"[yellow]{prompt}[/] [dim](default {defaultValue})[/]:")
+                .DefaultValue(defaultValue)
+                .Validate(value =>
                 {
-                    return result;
-                }
-                Console.WriteLine($"❌ Value must be between {min} and {max}");
-            }
-            else
-            {
-                Console.WriteLine("❌ Please enter a valid number");
-            }
-        }
+                    if (value < min || value > max)
+                        return ValidationResult.Error($"[red]Value must be between {min} and {max}[/]");
+                    return ValidationResult.Success();
+                }));
     }
 
     public double GetDoubleInput(string prompt, double min = double.MinValue, double max = double.MaxValue, double defaultValue = 0.0)
     {
-        while (true)
-        {
-            Console.Write($"{prompt} (default {defaultValue:F2}): ");
-            var input = Console.ReadLine()?.Trim();
-            
-            if (string.IsNullOrEmpty(input))
-            {
-                if (defaultValue >= min && defaultValue <= max)
-                    return defaultValue;
-                Console.WriteLine($"❌ Default value {defaultValue} is outside valid range [{min:F2}-{max:F2}]");
-                continue;
-            }
-            
-            if (double.TryParse(input, out double result))
-            {
-                if (result >= min && result <= max)
+        return AnsiConsole.Prompt(
+            new TextPrompt<double>($"[yellow]{prompt}[/] [dim](default {defaultValue:F2})[/]:")
+                .DefaultValue(defaultValue)
+                .Validate(value =>
                 {
-                    return result;
-                }
-                Console.WriteLine($"❌ Value must be between {min:F2} and {max:F2}");
-            }
-            else
-            {
-                Console.WriteLine("❌ Please enter a valid number");
-            }
-        }
+                    if (value < min || value > max)
+                        return ValidationResult.Error($"[red]Value must be between {min:F2} and {max:F2}[/]");
+                    return ValidationResult.Success();
+                }));
     }
 
     public bool GetBooleanInput(string prompt, bool defaultValue = false)
     {
-        while (true)
-        {
-            var defaultText = defaultValue ? "Y/n" : "y/N";
-            Console.Write($"{prompt} ({defaultText}): ");
-            var input = Console.ReadLine()?.Trim().ToLower();
-            
-            if (string.IsNullOrEmpty(input))
-            {
-                return defaultValue;
-            }
-            
-            if (input == "y" || input == "yes" || input == "true")
-            {
-                return true;
-            }
-            
-            if (input == "n" || input == "no" || input == "false")
-            {
-                return false;
-            }
-            
-            Console.WriteLine("❌ Please enter 'y' for yes or 'n' for no");
-        }
+        return AnsiConsole.Confirm($"[yellow]{prompt}[/]", defaultValue);
     }
 
     public string GetStringInput(string prompt, string defaultValue = "", bool allowEmpty = true)
     {
-        while (true)
+        var textPrompt = new TextPrompt<string>($"[yellow]{prompt}[/]:")
+            .AllowEmpty();
+
+        if (!string.IsNullOrEmpty(defaultValue))
         {
-            var defaultText = string.IsNullOrEmpty(defaultValue) ? "" : $" (default: {defaultValue})";
-            Console.Write($"{prompt}{defaultText}: ");
-            var input = Console.ReadLine()?.Trim();
-            
-            if (string.IsNullOrEmpty(input))
-            {
-                if (allowEmpty || !string.IsNullOrEmpty(defaultValue))
-                {
-                    return defaultValue;
-                }
-                Console.WriteLine("❌ This field cannot be empty");
-                continue;
-            }
-            
-            return input;
+            textPrompt.DefaultValue(defaultValue);
         }
+
+        if (!allowEmpty && string.IsNullOrEmpty(defaultValue))
+        {
+            textPrompt.Validate(value =>
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    return ValidationResult.Error("[red]This field cannot be empty[/]");
+                return ValidationResult.Success();
+            });
+        }
+
+        return AnsiConsole.Prompt(textPrompt);
     }
 
     public T GetChoiceInput<T>(string prompt, Dictionary<string, T> choices, T defaultChoice = default!)
     {
-        while (true)
+        var choiceList = choices.ToList();
+        var defaultIndex = 0;
+
+        // Find default choice index
+        for (int i = 0; i < choiceList.Count; i++)
         {
-            Console.WriteLine(prompt);
-            
-            var choiceList = choices.ToList();
-            for (int i = 0; i < choiceList.Count; i++)
+            if (EqualityComparer<T>.Default.Equals(choiceList[i].Value, defaultChoice))
             {
-                var isDefault = EqualityComparer<T>.Default.Equals(choiceList[i].Value, defaultChoice);
-                var defaultMarker = isDefault ? " (default)" : "";
-                Console.WriteLine($"  {i + 1}. {choiceList[i].Key}{defaultMarker}");
+                defaultIndex = i;
+                break;
             }
-            
-            Console.Write("Enter your choice (number): ");
-            var input = Console.ReadLine()?.Trim();
-            
-            if (string.IsNullOrEmpty(input) && !EqualityComparer<T>.Default.Equals(defaultChoice, default(T)))
-            {
-                return defaultChoice;
-            }
-            
-            if (int.TryParse(input, out int choice) && choice >= 1 && choice <= choices.Count)
-            {
-                return choiceList[choice - 1].Value;
-            }
-            
-            Console.WriteLine("❌ Invalid choice. Please enter a number from the list.");
         }
+
+        var selection = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title($"[bold cyan]{prompt}[/]")
+                .PageSize(10)
+                .HighlightStyle(new Style(Color.Black, Color.Cyan1))
+                .AddChoices(choiceList.Select(c => c.Key)));
+
+        return choices[selection];
     }
 
     public List<string> GetPlayerNames(int count)
     {
         var names = new List<string>();
-        
+
+        AnsiConsole.Write(new Rule("[bold cyan]Enter Player Names[/]").RuleStyle("cyan"));
+
         for (int i = 1; i <= count; i++)
         {
             var defaultName = $"Player {i}";
-            var name = GetStringInput($"Enter name for player {i}", defaultName);
-            
-            // Ensure unique names
-            while (names.Contains(name, StringComparer.OrdinalIgnoreCase))
+
+            while (true)
             {
-                Console.WriteLine("❌ That name is already taken");
-                name = GetStringInput($"Enter a different name for player {i}", $"{defaultName}_{i}");
+                var name = AnsiConsole.Prompt(
+                    new TextPrompt<string>($"[yellow]Name for player {i}[/]:")
+                        .DefaultValue(defaultName));
+
+                if (names.Contains(name, StringComparer.OrdinalIgnoreCase))
+                {
+                    AnsiConsole.MarkupLine("[red]That name is already taken. Please choose another.[/]");
+                    continue;
+                }
+
+                names.Add(name);
+                break;
             }
-            
-            names.Add(name);
         }
-        
+
         return names;
     }
 
     public void PressAnyKeyToContinue(string message = "Press any key to continue...")
     {
-        Console.WriteLine(message);
+        AnsiConsole.MarkupLine($"[dim]{message}[/]");
         Console.ReadKey(true);
     }
 
     public void ClearScreen()
     {
-        try
-        {
-            Console.Clear();
-        }
-        catch
-        {
-            // If clear fails, just add some newlines
-            Console.WriteLine(new string('\n', 10));
-        }
+        AnsiConsole.Clear();
     }
 
     public void ShowError(string message)
     {
-        var oldColor = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"❌ Error: {message}");
-        Console.ForegroundColor = oldColor;
+        AnsiConsole.MarkupLine($"[red]Error: {Markup.Escape(message)}[/]");
     }
 
     public void ShowSuccess(string message)
     {
-        var oldColor = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✅ {message}");
-        Console.ForegroundColor = oldColor;
+        AnsiConsole.MarkupLine($"[green]{Markup.Escape(message)}[/]");
     }
 
     public void ShowInfo(string message)
     {
-        var oldColor = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"ℹ️  {message}");
-        Console.ForegroundColor = oldColor;
+        AnsiConsole.MarkupLine($"[cyan]{Markup.Escape(message)}[/]");
     }
 
     public void ShowWarning(string message)
     {
-        var oldColor = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"⚠️  {message}");
-        Console.ForegroundColor = oldColor;
+        AnsiConsole.MarkupLine($"[yellow]Warning: {Markup.Escape(message)}[/]");
     }
 
     public void WriteColorText(string text, ConsoleColor color)
     {
-        var oldColor = Console.ForegroundColor;
-        Console.ForegroundColor = color;
-        Console.Write(text);
-        Console.ForegroundColor = oldColor;
+        var spectreColor = ConvertConsoleColor(color);
+        AnsiConsole.Markup($"[{spectreColor}]{Markup.Escape(text)}[/]");
     }
 
     public void WriteLineColorText(string text, ConsoleColor color)
     {
-        WriteColorText(text, color);
-        Console.WriteLine();
+        var spectreColor = ConvertConsoleColor(color);
+        AnsiConsole.MarkupLine($"[{spectreColor}]{Markup.Escape(text)}[/]");
+    }
+
+    private static string ConvertConsoleColor(ConsoleColor color)
+    {
+        return color switch
+        {
+            ConsoleColor.Black => "black",
+            ConsoleColor.DarkBlue => "navy",
+            ConsoleColor.DarkGreen => "green",
+            ConsoleColor.DarkCyan => "teal",
+            ConsoleColor.DarkRed => "maroon",
+            ConsoleColor.DarkMagenta => "purple",
+            ConsoleColor.DarkYellow => "olive",
+            ConsoleColor.Gray => "silver",
+            ConsoleColor.DarkGray => "grey",
+            ConsoleColor.Blue => "blue",
+            ConsoleColor.Green => "lime",
+            ConsoleColor.Cyan => "aqua",
+            ConsoleColor.Red => "red",
+            ConsoleColor.Magenta => "fuchsia",
+            ConsoleColor.Yellow => "yellow",
+            ConsoleColor.White => "white",
+            _ => "white"
+        };
     }
 }
