@@ -1,6 +1,6 @@
 # 🃏 Texas Hold'em Poker CLI
 
-A feature-rich, extensible Texas Hold'em Poker command-line game built with .NET 8. Experience authentic poker gameplay with intelligent AI opponents (Claude, Gemini, OpenAI), comprehensive logging, and endless customization options.
+A feature-rich, extensible Texas Hold'em Poker command-line game built with .NET 10. Experience authentic poker gameplay with intelligent AI opponents (Claude, Gemini, OpenAI), comprehensive logging, and endless customization options.
 
 ## 📦 Quick Install
 
@@ -49,7 +49,7 @@ After installation, run `poker-cli` to start playing!
 ## 🚀 Quick Start
 
 ### Prerequisites
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Windows/Linux/macOS terminal with color support
 
 ### Installation & Setup
