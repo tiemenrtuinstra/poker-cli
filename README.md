@@ -16,6 +16,60 @@ irm https://raw.githubusercontent.com/tiemenrtuinstra/poker-cli/main/install.ps1
 
 After installation, run `poker-cli` to start playing!
 
+## 🔑 AI Setup (Optional)
+
+The game works out of the box with **basic AI opponents**. To enable **LLM-powered AI** (smarter, more realistic opponents), you need API keys from one or more providers.
+
+### Step 1: Get API Keys (free tiers available)
+
+| Provider | Get API Key | Free Tier |
+|----------|-------------|-----------|
+| **Claude** (Anthropic) | [console.anthropic.com](https://console.anthropic.com/) | $5 free credit |
+| **Gemini** (Google) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Free |
+| **OpenAI** | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Pay-as-you-go |
+
+> 💡 **Tip:** You only need ONE provider. Gemini is free and works great!
+
+### Step 2: Create Environment File
+
+Create a `.env` file in the same folder as `poker-cli`:
+
+**Linux / macOS:**
+```bash
+cd ~/.local/bin
+nano .env
+```
+
+**Windows:**
+```powershell
+cd $env:LOCALAPPDATA\Programs\poker-cli
+notepad .env
+```
+
+### Step 3: Add Your API Keys
+
+```env
+# Add the keys you have (you don't need all three)
+CLAUDE_API_KEY=sk-ant-xxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaxxxxxxxxxxxxx
+OPENAI_API_KEY=sk-xxxxxxxxxxxxx
+
+# Optional: Override default models
+# CLAUDE_MODEL=claude-sonnet-4-20250514
+# GEMINI_MODEL=gemini-2.0-flash
+# OPENAI_MODEL=gpt-4o-mini
+```
+
+### Step 4: Play!
+
+```bash
+poker-cli
+```
+
+The game automatically detects which API keys are available and uses those providers for AI players. Without any API keys, the game uses basic rule-based AI.
+
+---
+
 ## ✨ Features
 
 ### 🎮 Game Features
