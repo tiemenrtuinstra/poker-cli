@@ -1,0 +1,30 @@
+# Environment files with secrets
+.env
+*.env.local
+
+# Build outputs
+bin/
+obj/
+out/
+
+# IDE folders
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+packages/
+
+# Test results
+TestResults/
