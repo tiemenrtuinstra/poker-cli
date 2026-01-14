@@ -1,0 +1,150 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v0.0.1'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: 'TexasHoldem/TexasHoldem.csproj'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            artifact: poker-cli-windows-x64.exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact: poker-cli-linux-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+            artifact: poker-cli-linux-arm64
+          - os: macos-latest
+            rid: osx-x64
+            artifact: poker-cli-macos-x64
+          - os: macos-latest
+            rid: osx-arm64
+            artifact: poker-cli-macos-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: Publish self-contained executable
+        run: |
+          dotnet publish ${{ env.PROJECT_PATH }} \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            --output ./publish
+        shell: bash
+
+      - name: Rename artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [ -f "./publish/TexasHoldem" ]; then
+            mv ./publish/TexasHoldem ./publish/${{ matrix.artifact }}
+          fi
+          chmod +x ./publish/${{ matrix.artifact }}
+
+      - name: Rename artifact (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if (Test-Path "./publish/TexasHoldem.exe") {
+            Move-Item "./publish/TexasHoldem.exe" "./publish/${{ matrix.artifact }}"
+          }
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ./publish/${{ matrix.artifact }}
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find ./artifacts -type f -exec cp {} ./release/ \;
+          ls -la ./release/
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Poker CLI ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release/*
+          body: |
+            ## Installation
+
+            ### Linux / macOS (one-liner)
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+            ```
+
+            ### Windows (PowerShell)
+            ```powershell
+            irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
+            ```
+
+            ### Manual Download
+            Download the appropriate executable for your platform from the assets below.
+
+            | Platform | File |
+            |----------|------|
+            | Windows x64 | `poker-cli-windows-x64.exe` |
+            | Linux x64 | `poker-cli-linux-x64` |
+            | Linux ARM64 | `poker-cli-linux-arm64` |
+            | macOS Intel | `poker-cli-macos-x64` |
+            | macOS Apple Silicon | `poker-cli-macos-arm64` |
