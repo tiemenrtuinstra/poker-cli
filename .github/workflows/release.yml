@@ -41,7 +41,7 @@ jobs:
       - name: Get latest tag
         id: latest_tag
         run: |
-          git fetch --tags
+          git fetch --tags --force
           LATEST=$(git tag -l 'v*' | sort -V | tail -n 1)
           if [ -z "$LATEST" ]; then
             LATEST="v0.0.0"
@@ -104,6 +104,7 @@ jobs:
   # Build executables for all platforms
   build:
     needs: [prepare]
+    if: always() && needs.prepare.result == 'success'
     strategy:
       matrix:
         include:
@@ -244,6 +245,7 @@ jobs:
   # Create GitHub Release
   release:
     needs: [prepare, build]
+    if: always() && needs.prepare.result == 'success' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
