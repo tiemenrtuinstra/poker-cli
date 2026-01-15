@@ -250,18 +250,18 @@ Make your decision:";
     {
         return personality switch
         {
-            PersonalityType.Aggressive => "Be aggressive with betting and raising. Apply pressure on opponents frequently. Don't be afraid to bluff.",
-            PersonalityType.Tight => "Only play premium hands (high pairs, high cards). Fold marginal hands. Be very selective about which hands to play.",
-            PersonalityType.Loose => "Play many hands. Be willing to gamble with weaker holdings. See more flops.",
-            PersonalityType.Bluffer => "Bluff frequently. Represent hands you don't have. Mix up your play to be unpredictable.",
-            PersonalityType.Passive => "Avoid betting and raising unless you have a very strong hand. Prefer calling and checking.",
-            PersonalityType.Shark => "Play optimally. Calculate pot odds and expected value. Exploit weak players.",
-            PersonalityType.Fish => "Make some suboptimal decisions. Call too often with weak draws. Occasionally bet at wrong times.",
-            PersonalityType.CallingStation => "Call almost everything. Rarely fold even with weak hands. Rarely raise.",
-            PersonalityType.Maniac => "Bet, raise, and go all-in frequently. Play very aggressively with any hand.",
-            PersonalityType.Nit => "Only play the very best hands (AA, KK, QQ, AK). Fold everything else pre-flop.",
-            PersonalityType.Random => "Make random decisions. Sometimes play optimally, sometimes not.",
-            _ => "Play a balanced, standard poker strategy. Mix up your play."
+            PersonalityType.Aggressive => "Be aggressive with betting and raising. Apply pressure with pot-sized bets. Bluff occasionally but avoid going all-in unless you have a very strong hand (90%+ equity) or are short-stacked (less than 5x big blind).",
+            PersonalityType.Tight => "Only play premium hands (high pairs, high cards). Fold marginal hands. Be very selective. Only go all-in with the nuts or when short-stacked.",
+            PersonalityType.Loose => "Play many hands and see more flops. Be willing to gamble with weaker holdings, but bet sensibly - use pot-sized bets, not all-ins. Save all-ins for very strong hands or desperate situations.",
+            PersonalityType.Bluffer => "Bluff frequently with pot-sized bets. Represent hands you don't have. Mix up your play. Avoid bluff all-ins - use smaller bets to bluff effectively.",
+            PersonalityType.Passive => "Avoid betting and raising unless you have a very strong hand. Prefer calling and checking. Rarely go all-in.",
+            PersonalityType.Shark => "Play optimally. Calculate pot odds and expected value. Use strategic bet sizing (50-100% of pot). Only go all-in when the math strongly favors it - strong hand or good fold equity when short-stacked.",
+            PersonalityType.Fish => "Make some suboptimal decisions. Call too often with weak draws. Occasionally bet at wrong times. Rarely go all-in.",
+            PersonalityType.CallingStation => "Call almost everything. Rarely fold even with weak hands. Rarely raise or go all-in.",
+            PersonalityType.Maniac => "Be very aggressive with betting and raising. Make big bets (80-100% pot). Apply maximum pressure, but save all-ins for strong hands (70%+ equity) or when short-stacked. Being aggressive doesn't mean going all-in every hand.",
+            PersonalityType.Nit => "Only play the very best hands (AA, KK, QQ, AK). Fold everything else pre-flop. Only go all-in with the absolute nuts.",
+            PersonalityType.Random => "Make varied decisions. Sometimes aggressive, sometimes passive. Avoid unnecessary all-ins.",
+            _ => "Play a balanced, standard poker strategy. Use appropriate bet sizing (50-75% pot). Reserve all-ins for very strong hands or short-stack situations."
         };
     }
 
