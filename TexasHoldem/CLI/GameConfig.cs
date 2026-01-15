@@ -11,6 +11,8 @@ public class GameConfig
     public int BigBlind { get; set; } = 100;
     public int Ante { get; set; } = 0;
     public int MaxHands { get; set; } = 0; // 0 = unlimited
+    public bool AllowRebuys { get; set; } = true; // Allow players to rebuy when busted
+    public int RebuyAmount { get; set; } = 0; // 0 = use StartingChips
     public bool IsBlindIncreaseEnabled { get; set; } = false;
     public int BlindIncreaseInterval { get; set; } = 10; // Every X hands
     public double BlindIncreaseMultiplier { get; set; } = 1.5;
@@ -57,6 +59,8 @@ public class GameConfig
             BigBlind = BigBlind,
             Ante = Ante,
             MaxHands = MaxHands,
+            AllowRebuys = AllowRebuys,
+            RebuyAmount = RebuyAmount,
             IsBlindIncreaseEnabled = IsBlindIncreaseEnabled,
             BlindIncreaseInterval = BlindIncreaseInterval,
             BlindIncreaseMultiplier = BlindIncreaseMultiplier,

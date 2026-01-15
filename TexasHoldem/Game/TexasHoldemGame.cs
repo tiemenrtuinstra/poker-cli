@@ -1,3 +1,4 @@
+using Spectre.Console;
 using TexasHoldem.Domain;
 using TexasHoldem.Domain.Enums;
 using TexasHoldem.Players;
@@ -156,10 +157,19 @@ public class TexasHoldemGame
         // Reset players for new hand
         BettingLogic.ResetPlayersForNewHand(_gameState.Players);
 
+        // Find busted players before eliminating
+        var bustedPlayers = _gameState.Players.Where(p => p.Chips <= 0).ToList();
+
         // Eliminate busted players
         var remainingPlayers = BettingLogic.EliminateBustedPlayers(_gameState.Players);
         _gameState.Players.Clear();
         _gameState.Players.AddRange(remainingPlayers);
+
+        // Handle rebuys and AI respawns if enabled
+        if (_config.AllowRebuys && bustedPlayers.Any())
+        {
+            await HandleBustedPlayers(bustedPlayers);
+        }
 
         // Move dealer button
         if (_gameState.Players.Count > 1)
@@ -190,6 +200,122 @@ public class TexasHoldemGame
         // Pause between hands
         Console.WriteLine("\nPress Enter to continue to next hand...");
         Console.ReadLine();
+    }
+
+    private async Task HandleBustedPlayers(List<IPlayer> bustedPlayers)
+    {
+        var rebuyAmount = _config.RebuyAmount > 0 ? _config.RebuyAmount : _config.StartingChips;
+
+        // Handle busted human players - offer rebuy
+        var bustedHumans = bustedPlayers.Where(p => p is HumanPlayer).ToList();
+        foreach (var player in bustedHumans)
+        {
+            Console.WriteLine();
+            _gameUI.DrawSeparator('─', 50);
+            Console.WriteLine($"💀 {player.Name} is out of chips!");
+
+            var choice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"[yellow]Would you like to rebuy for €{rebuyAmount}?[/]")
+                    .HighlightStyle(new Style(Color.Black, Color.Yellow))
+                    .AddChoices(new[]
+                    {
+                        $"💰  Yes, rebuy for €{rebuyAmount}",
+                        "🚪  No, sit out"
+                    }));
+
+            if (choice.Contains("Yes"))
+            {
+                player.Chips = rebuyAmount;
+                player.IsActive = true;
+                player.HasFolded = false;
+                player.IsAllIn = false;
+                _gameState.Players.Add(player);
+                Console.WriteLine($"✅ {player.Name} has rebuyed for €{rebuyAmount}!");
+            }
+            else
+            {
+                Console.WriteLine($"👋 {player.Name} has left the table.");
+            }
+        }
+
+        // Handle busted AI players - offer to respawn or add new ones
+        var bustedAIs = bustedPlayers.Where(p => p is not HumanPlayer).ToList();
+        if (bustedAIs.Any())
+        {
+            Console.WriteLine();
+            _gameUI.DrawSeparator('─', 50);
+            Console.WriteLine($"🤖 {bustedAIs.Count} AI player(s) eliminated: {string.Join(", ", bustedAIs.Select(p => p.Name))}");
+
+            var aiChoice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[yellow]What would you like to do with AI players?[/]")
+                    .HighlightStyle(new Style(Color.Black, Color.Yellow))
+                    .AddChoices(new[]
+                    {
+                        $"🔄  Respawn same AI players (€{rebuyAmount} each)",
+                        "🆕  Add new AI players with different names",
+                        "⏭️  Continue without them"
+                    }));
+
+            if (aiChoice.Contains("Respawn"))
+            {
+                // Respawn same AI players
+                foreach (var ai in bustedAIs)
+                {
+                    ai.Chips = rebuyAmount;
+                    ai.IsActive = true;
+                    ai.HasFolded = false;
+                    ai.IsAllIn = false;
+                    _gameState.Players.Add(ai);
+                }
+                Console.WriteLine($"✅ {bustedAIs.Count} AI player(s) respawned with €{rebuyAmount} each!");
+            }
+            else if (aiChoice.Contains("new AI"))
+            {
+                // Create new AI players with different names
+                var aiFactory = new AiPlayerFactory(_config, _random);
+                var newAIs = aiFactory.CreateAiPlayers(bustedAIs.Count, rebuyAmount);
+                foreach (var ai in newAIs)
+                {
+                    _gameState.Players.Add(ai);
+                }
+                Console.WriteLine($"✅ {newAIs.Count} new AI player(s) joined: {string.Join(", ", newAIs.Select(p => p.Name))}");
+            }
+            else
+            {
+                Console.WriteLine("👋 AI players have left the table.");
+            }
+        }
+
+        // Option to add extra AI players if the table is getting thin
+        if (_gameState.Players.Count < 4 && _gameState.Players.Count >= 2)
+        {
+            Console.WriteLine();
+            var addMore = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"[aqua]Only {_gameState.Players.Count} players remaining. Add more AI players?[/]")
+                    .HighlightStyle(new Style(Color.Black, Color.Aqua))
+                    .AddChoices(new[]
+                    {
+                        "➕  Add 1 AI player",
+                        "➕  Add 2 AI players",
+                        "➕  Add 3 AI players",
+                        "⏭️  Continue as is"
+                    }));
+
+            if (!addMore.Contains("Continue"))
+            {
+                int countToAdd = addMore.Contains("1") ? 1 : addMore.Contains("2") ? 2 : 3;
+                var aiFactory = new AiPlayerFactory(_config, _random);
+                var newAIs = aiFactory.CreateAiPlayers(countToAdd, rebuyAmount);
+                foreach (var ai in newAIs)
+                {
+                    _gameState.Players.Add(ai);
+                }
+                Console.WriteLine($"✅ {countToAdd} new AI player(s) joined the game!");
+            }
+        }
     }
 
     private void ShowPlayerSummary()

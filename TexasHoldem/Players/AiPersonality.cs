@@ -30,19 +30,29 @@ public static class AiPersonality
     private static PlayerAction MakeTightDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
         // Tight players only play premium hands
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
         if (handStrength < 0.7)
         {
             return CreateAction(player, ActionType.Fold, 0, gameState);
         }
 
+        // Only all-in with the nuts or when short-stacked
+        if (validActions.Contains(ActionType.AllIn) &&
+            handStrength > 0.95 && (stackToPot < 5 || random.NextDouble() < 0.05))
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+        }
+
         if (handStrength > 0.85 && validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.5), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.4), gameState);
         }
 
         if (handStrength > 0.85 && validActions.Contains(ActionType.Raise))
         {
-            return CreateAction(player, ActionType.Raise, GetRaiseAmount(gameState, player.Chips, 0.5), gameState);
+            return CreateAction(player, ActionType.Raise, GetPotBasedRaiseAmount(gameState, player.Chips, 0.4), gameState);
         }
 
         if (validActions.Contains(ActionType.Call))
@@ -60,20 +70,31 @@ public static class AiPersonality
 
     private static PlayerAction MakeLooseDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Loose players play many hands
+        // Loose players play many hands but are still reasonable
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
         if (handStrength < 0.2 && random.NextDouble() < 0.7) // Still fold really bad hands sometimes
         {
             return CreateAction(player, ActionType.Fold, 0, gameState);
         }
 
+        // Only all-in with very strong hands or when short-stacked
+        if (validActions.Contains(ActionType.AllIn) &&
+            ((handStrength > 0.9 && random.NextDouble() < 0.1) ||
+             (stackToPot < 4 && handStrength > 0.6)))
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+        }
+
         if (handStrength > 0.6 && validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.7), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.5), gameState);
         }
 
         if (handStrength > 0.5 && validActions.Contains(ActionType.Raise))
         {
-            return CreateAction(player, ActionType.Raise, GetRaiseAmount(gameState, player.Chips, 0.6), gameState);
+            return CreateAction(player, ActionType.Raise, GetPotBasedRaiseAmount(gameState, player.Chips, 0.5), gameState);
         }
 
         if (validActions.Contains(ActionType.Call))
@@ -91,20 +112,26 @@ public static class AiPersonality
 
     private static PlayerAction MakeAggressiveDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Aggressive players bet and raise frequently
+        // Aggressive players bet and raise frequently, but smartly
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
+        // Only go all-in with monster hands (95%+) or when short-stacked
+        if (validActions.Contains(ActionType.AllIn) &&
+            ((handStrength > 0.95 && random.NextDouble() < 0.15) ||
+             (stackToPot < 3 && handStrength > 0.7)))
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+        }
+
         if (handStrength > 0.4 && validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.8), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.6), gameState);
         }
 
         if (handStrength > 0.3 && validActions.Contains(ActionType.Raise))
         {
-            return CreateAction(player, ActionType.Raise, GetRaiseAmount(gameState, player.Chips, 0.8), gameState);
-        }
-
-        if (handStrength > 0.6 && validActions.Contains(ActionType.AllIn) && random.NextDouble() < 0.2)
-        {
-            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+            return CreateAction(player, ActionType.Raise, GetPotBasedRaiseAmount(gameState, player.Chips, 0.6), gameState);
         }
 
         if (handStrength < 0.2)
@@ -154,23 +181,40 @@ public static class AiPersonality
     private static PlayerAction MakeBlufferDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
         // Bluffers bet with weak hands and sometimes fold strong hands
-        var isBluffing = random.NextDouble() < 0.4; // 40% chance to bluff
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+        var isBluffing = random.NextDouble() < 0.35; // 35% chance to bluff
+
+        // Bluff all-in is very rare - only when pot is big relative to stack
+        if (isBluffing && handStrength < 0.3 && stackToPot < 3 && random.NextDouble() < 0.05)
+        {
+            if (validActions.Contains(ActionType.AllIn))
+            {
+                return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+            }
+        }
 
         if (isBluffing && handStrength < 0.3)
         {
             if (validActions.Contains(ActionType.Bet))
             {
-                return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.9), gameState);
+                return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.7), gameState);
             }
             if (validActions.Contains(ActionType.Raise))
             {
-                return CreateAction(player, ActionType.Raise, GetRaiseAmount(gameState, player.Chips, 0.9), gameState);
+                return CreateAction(player, ActionType.Raise, GetPotBasedRaiseAmount(gameState, player.Chips, 0.7), gameState);
             }
         }
 
-        if (!isBluffing && handStrength > 0.8 && random.NextDouble() < 0.2) // Sometimes fold good hands to appear weak
+        if (!isBluffing && handStrength > 0.8 && random.NextDouble() < 0.15) // Sometimes fold good hands to appear weak
         {
             return CreateAction(player, ActionType.Fold, 0, gameState);
+        }
+
+        // Value bet with strong hands
+        if (handStrength > 0.9 && validActions.Contains(ActionType.AllIn) && stackToPot < 5 && random.NextDouble() < 0.1)
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
         }
 
         // Normal play otherwise
@@ -178,7 +222,7 @@ public static class AiPersonality
         {
             if (validActions.Contains(ActionType.Bet))
             {
-                return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.6), gameState);
+                return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.5), gameState);
             }
             if (validActions.Contains(ActionType.Call))
             {
@@ -196,34 +240,66 @@ public static class AiPersonality
 
     private static PlayerAction MakeRandomDecision(IPlayer player, GameState gameState, List<ActionType> validActions, Random random)
     {
-        // Completely random decisions
-        var action = validActions[random.Next(validActions.Count)];
-        var amount = action switch
+        // Random decisions but with weighted probability - all-in is rare
+        var weightedActions = new List<ActionType>();
+        foreach (var action in validActions)
         {
-            ActionType.Bet => GetBetAmount(gameState, player.Chips, random.NextDouble()),
-            ActionType.Raise => GetRaiseAmount(gameState, player.Chips, random.NextDouble()),
+            // Add actions with different weights
+            int weight = action switch
+            {
+                ActionType.AllIn => 1,   // Rare
+                ActionType.Raise => 3,   // Uncommon
+                ActionType.Bet => 4,     // Common
+                ActionType.Call => 5,    // Common
+                ActionType.Check => 5,   // Common
+                ActionType.Fold => 3,    // Uncommon
+                _ => 2
+            };
+            for (int i = 0; i < weight; i++)
+                weightedActions.Add(action);
+        }
+
+        var selectedAction = weightedActions[random.Next(weightedActions.Count)];
+        var amount = selectedAction switch
+        {
+            ActionType.Bet => GetPotBasedBetAmount(gameState, player.Chips, random.NextDouble() * 0.6 + 0.2),
+            ActionType.Raise => GetPotBasedRaiseAmount(gameState, player.Chips, random.NextDouble() * 0.6 + 0.2),
             ActionType.Call => GetCallAmount(gameState, player),
             ActionType.AllIn => player.Chips,
             _ => 0
         };
 
-        return CreateAction(player, action, amount, gameState);
+        return CreateAction(player, selectedAction, amount, gameState);
     }
 
     private static PlayerAction MakeFishDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Fish make poor decisions, call too much, bet at wrong times
-        if (validActions.Contains(ActionType.Call) && random.NextDouble() < 0.7) // Call too often
+        // Fish make poor decisions, call too much, bet at wrong times, but rarely go all-in
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
+        // Fish sometimes go all-in at bad times (rare - 3%)
+        if (validActions.Contains(ActionType.AllIn) && random.NextDouble() < 0.03)
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+        }
+
+        if (validActions.Contains(ActionType.Call) && random.NextDouble() < 0.65) // Call too often
         {
             return CreateAction(player, ActionType.Call, GetCallAmount(gameState, player), gameState);
         }
 
-        if (handStrength < 0.2 && validActions.Contains(ActionType.Bet) && random.NextDouble() < 0.3) // Bet with weak hands
+        if (handStrength < 0.2 && validActions.Contains(ActionType.Bet) && random.NextDouble() < 0.25) // Bet with weak hands
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.9), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.6), gameState);
         }
 
         if (handStrength > 0.8 && validActions.Contains(ActionType.Check) && random.NextDouble() < 0.4) // Check strong hands
+        {
+            return CreateAction(player, ActionType.Check, 0, gameState);
+        }
+
+        if (validActions.Contains(ActionType.Check))
         {
             return CreateAction(player, ActionType.Check, 0, gameState);
         }
@@ -238,23 +314,40 @@ public static class AiPersonality
 
     private static PlayerAction MakeSharkDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Sharks are skilled, adaptive players
+        // Sharks are skilled, adaptive players - they use all-in strategically
         var potOdds = CalculatePotOdds(gameState, player);
-        
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
         // Only play hands with positive expected value
         if (handStrength < 0.4 && potOdds < 0.3)
         {
             return CreateAction(player, ActionType.Fold, 0, gameState);
         }
 
+        // Sharks only go all-in for value or as a bluff when it makes sense
+        if (validActions.Contains(ActionType.AllIn))
+        {
+            // Value all-in with monster hands when pot is committed
+            if (handStrength > 0.95 && stackToPot < 4)
+            {
+                return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+            }
+            // Semi-bluff all-in when short-stacked with decent equity
+            if (stackToPot < 3 && handStrength > 0.6 && random.NextDouble() < 0.2)
+            {
+                return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+            }
+        }
+
         if (handStrength > 0.8 && validActions.Contains(ActionType.Raise))
         {
-            return CreateAction(player, ActionType.Raise, GetRaiseAmount(gameState, player.Chips, 0.7), gameState);
+            return CreateAction(player, ActionType.Raise, GetPotBasedRaiseAmount(gameState, player.Chips, 0.6), gameState);
         }
 
         if (handStrength > 0.7 && validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.7), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.6), gameState);
         }
 
         if (potOdds > 0.6 && validActions.Contains(ActionType.Call))
@@ -272,7 +365,16 @@ public static class AiPersonality
 
     private static PlayerAction MakeCallingStationDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Calling stations call everything, rarely fold or raise
+        // Calling stations call everything, rarely fold, raise, or go all-in
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
+        // Very rarely go all-in (only with nuts when short-stacked)
+        if (validActions.Contains(ActionType.AllIn) && handStrength > 0.95 && stackToPot < 3)
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+        }
+
         if (validActions.Contains(ActionType.Call))
         {
             return CreateAction(player, ActionType.Call, GetCallAmount(gameState, player), gameState);
@@ -280,7 +382,7 @@ public static class AiPersonality
 
         if (handStrength > 0.9 && validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.3), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.3), gameState);
         }
 
         if (validActions.Contains(ActionType.Check))
@@ -293,20 +395,26 @@ public static class AiPersonality
 
     private static PlayerAction MakeManiacDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Maniacs bet, raise, and go all-in frequently
-        if (validActions.Contains(ActionType.AllIn) && random.NextDouble() < 0.3)
+        // Maniacs are aggressive but not suicidal - they bet big but rarely go all-in
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
+        // Only go all-in with decent hands or when short-stacked (8% chance)
+        if (validActions.Contains(ActionType.AllIn) &&
+            ((handStrength > 0.7 && random.NextDouble() < 0.08) ||
+             (stackToPot < 4 && handStrength > 0.5 && random.NextDouble() < 0.15)))
         {
             return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
         }
 
         if (validActions.Contains(ActionType.Raise))
         {
-            return CreateAction(player, ActionType.Raise, GetRaiseAmount(gameState, player.Chips, 0.9), gameState);
+            return CreateAction(player, ActionType.Raise, GetPotBasedRaiseAmount(gameState, player.Chips, 0.8), gameState);
         }
 
         if (validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.9), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.8), gameState);
         }
 
         if (validActions.Contains(ActionType.Call))
@@ -319,15 +427,24 @@ public static class AiPersonality
 
     private static PlayerAction MakeNitDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)
     {
-        // Nits only play premium hands and play them very conservatively
+        // Nits only play premium hands and play them very conservatively - almost never go all-in
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var stackToPot = (double)player.Chips / potSize;
+
         if (handStrength < 0.8)
         {
             return CreateAction(player, ActionType.Fold, 0, gameState);
         }
 
+        // Nits only go all-in with the absolute nuts when short-stacked
+        if (validActions.Contains(ActionType.AllIn) && handStrength > 0.98 && stackToPot < 2)
+        {
+            return CreateAction(player, ActionType.AllIn, player.Chips, gameState);
+        }
+
         if (handStrength > 0.95 && validActions.Contains(ActionType.Bet))
         {
-            return CreateAction(player, ActionType.Bet, GetBetAmount(gameState, player.Chips, 0.3), gameState);
+            return CreateAction(player, ActionType.Bet, GetPotBasedBetAmount(gameState, player.Chips, 0.25), gameState);
         }
 
         if (validActions.Contains(ActionType.Call) && handStrength > 0.9)
@@ -454,7 +571,7 @@ public static class AiPersonality
     {
         var minBet = Math.Max(gameState.BigBlindAmount, 1);
         var maxBet = playerChips;
-        
+
         var targetBet = (int)(minBet + ((maxBet - minBet) * aggressionFactor * 0.5));
         return Math.Max(minBet, Math.Min(targetBet, maxBet));
     }
@@ -463,9 +580,41 @@ public static class AiPersonality
     {
         var minRaise = gameState.CurrentBet * 2;
         var maxRaise = playerChips;
-        
+
         var targetRaise = (int)(minRaise + ((maxRaise - minRaise) * aggressionFactor * 0.5));
         return Math.Max(minRaise, Math.Min(targetRaise, maxRaise));
+    }
+
+    /// <summary>
+    /// Get bet amount based on pot size rather than stack size for more realistic betting
+    /// </summary>
+    private static int GetPotBasedBetAmount(GameState gameState, int playerChips, double potFraction)
+    {
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var minBet = Math.Max(gameState.BigBlindAmount, 1);
+
+        // Bet between 30% and 100% of pot based on aggression
+        var targetBet = (int)(potSize * (0.3 + potFraction * 0.7));
+        targetBet = Math.Max(minBet, targetBet);
+
+        // Never bet more than stack
+        return Math.Min(targetBet, playerChips);
+    }
+
+    /// <summary>
+    /// Get raise amount based on pot size rather than stack size
+    /// </summary>
+    private static int GetPotBasedRaiseAmount(GameState gameState, int playerChips, double potFraction)
+    {
+        var potSize = Math.Max(gameState.TotalPot, gameState.BigBlindAmount);
+        var minRaise = gameState.CurrentBet * 2;
+
+        // Raise to make it pot-sized or fraction of pot
+        var targetRaise = (int)(gameState.CurrentBet + potSize * (0.5 + potFraction * 0.5));
+        targetRaise = Math.Max(minRaise, targetRaise);
+
+        // Never raise more than stack
+        return Math.Min(targetRaise, playerChips);
     }
 
     private static PlayerAction CreateAction(IPlayer player, ActionType action, int amount, GameState gameState)
