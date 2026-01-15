@@ -18,6 +18,7 @@ public interface IPlayer
     void AddChips(int amount);
     bool RemoveChips(int amount);
     void Reset();
+    void ResetForNewGame();
     void ShowCards();
     void HideCards();
 }

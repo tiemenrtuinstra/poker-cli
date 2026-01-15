@@ -223,15 +223,17 @@ public class Dealer
         if (anteAmount <= 0) return;
 
         Console.WriteLine($"💰 Posting antes of €{anteAmount}...");
-        
+
         foreach (var player in players.Where(p => p.IsActive && p.Chips > 0))
         {
             var actualAnte = Math.Min(anteAmount, player.Chips);
+            var goesAllIn = actualAnte == player.Chips; // Check BEFORE removing chips
             player.RemoveChips(actualAnte);
-            
-            if (actualAnte == player.Chips)
+
+            if (goesAllIn)
             {
                 player.IsAllIn = true;
+                Console.WriteLine($"  {player.Name} posts ante €{actualAnte} and is ALL-IN!");
             }
         }
     }

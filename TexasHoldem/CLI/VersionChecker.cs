@@ -69,15 +69,15 @@ public class VersionChecker
             return await PerformUpdateAsync(targetRelease);
         }
 
-        // Show version table
+        // Show combined version table with changelogs
         var table = new Table()
             .Border(TableBorder.Rounded)
             .BorderColor(Color.Grey)
             .Title("[bold cyan]Available Versions[/]")
-            .AddColumn(new TableColumn("[bold]Version[/]").Centered())
-            .AddColumn(new TableColumn("[bold]Status[/]").Centered())
-            .AddColumn(new TableColumn("[bold]Released[/]").Centered())
-            .Centered();
+            .AddColumn(new TableColumn("[bold]Version[/]").Centered().Width(9))
+            .AddColumn(new TableColumn("[bold]Status[/]").Centered().Width(11))
+            .AddColumn(new TableColumn("[bold]Released[/]").Centered().Width(18))
+            .AddColumn(new TableColumn("[bold]Changelog[/]").LeftAligned());
 
         foreach (var release in releases.Take(15))
         {
@@ -93,61 +93,31 @@ public class VersionChecker
                 ? $"[green]{release.TagName}[/]"
                 : $"[cyan]{release.TagName}[/]";
 
-            table.AddRow(versionDisplay, status, $"[dim]{releasedDateTime}[/]");
+            // Get changelog from release name or body (truncate to fit column)
+            var changelog = !string.IsNullOrEmpty(release.Name) && release.Name != release.TagName
+                ? release.Name
+                : release.Body?.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim() ?? "";
+
+            // Remove markdown formatting from changelog
+            changelog = System.Text.RegularExpressions.Regex.Replace(changelog, @"[#*_`\[\]]", "").Trim();
+
+            if (changelog.Length > 35)
+            {
+                changelog = changelog[..32] + "...";
+            }
+            var changelogDisplay = string.IsNullOrEmpty(changelog)
+                ? "[dim]-[/]"
+                : $"[dim]{Markup.Escape(changelog)}[/]";
+
+            table.AddRow(versionDisplay, status, $"[dim]{releasedDateTime}[/]", changelogDisplay);
         }
 
         AnsiConsole.Write(table);
-        AnsiConsole.WriteLine();
 
-        // Show changelog for latest versions (using commit messages)
-        AnsiConsole.Write(new Rule("[bold cyan]Changelogs[/]").RuleStyle("cyan"));
-        AnsiConsole.WriteLine();
-
-        // Fetch commits between releases
-        var releasesForChangelog = releases.Take(6).ToList(); // Take 6 to compare 5 pairs
-        for (int i = 0; i < Math.Min(5, releasesForChangelog.Count); i++)
-        {
-            var release = releasesForChangelog[i];
-            var previousRelease = i + 1 < releasesForChangelog.Count ? releasesForChangelog[i + 1] : null;
-
-            var releaseVersion = ParseVersion(release.TagName ?? "0.0.0");
-            var versionColor = releaseVersion == currentVersion ? "green" : "cyan";
-            var currentMarker = releaseVersion == currentVersion ? " [green](current)[/]" : "";
-
-            AnsiConsole.MarkupLine($"[bold {versionColor}]{release.TagName}[/]{currentMarker} - [dim]{release.PublishedAt?.ToLocalTime():yyyy-MM-dd HH:mm}[/]");
-
-            // Get commits for this release
-            var commits = await GetCommitsBetweenTagsAsync(previousRelease?.TagName, release.TagName!);
-
-            if (commits != null && commits.Count > 0)
-            {
-                foreach (var commit in commits.Take(8)) // Limit commits per release
-                {
-                    // Get first line of commit message
-                    var message = commit.Message?.Split('\n').FirstOrDefault()?.Trim() ?? "";
-                    if (string.IsNullOrEmpty(message)) continue;
-
-                    // Skip automated commits
-                    if (message.StartsWith("Merge ") || message.StartsWith("Bump version")) continue;
-
-                    var safeLine = Markup.Escape(message);
-                    AnsiConsole.MarkupLine($"  [dim]• {safeLine}[/]");
-                }
-            }
-            else
-            {
-                AnsiConsole.MarkupLine("  [dim]No commits found[/]");
-            }
-
-            AnsiConsole.WriteLine();
-        }
-
-        AnsiConsole.Write(new Rule().RuleStyle("grey"));
-        AnsiConsole.WriteLine();
-
-        // Show current version and repo info
+        // Show compact footer with version and repo info
+        var repoOwner = GitHubRepo.Split('/')[0];
         AnsiConsole.MarkupLine($"[dim]Your current version:[/] [green]{currentVersion.ToString(3)}[/]");
-        AnsiConsole.MarkupLine($"[dim]GitHub:[/] [link=https://github.com/{GitHubRepo}]https://github.com/{GitHubRepo}[/]");
+        AnsiConsole.MarkupLine($"[dim]GitHub:[/] [link=https://github.com/{GitHubRepo}]https://github.com/{GitHubRepo}[/]  [cyan]👤 @{repoOwner}[/]");
         AnsiConsole.WriteLine();
 
         // Ask what the user wants to do
@@ -249,42 +219,6 @@ public class VersionChecker
                 return null;
 
             return await response.Content.ReadFromJsonAsync<List<GitHubRelease>>();
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Get commits between two tags using GitHub Compare API
-    /// </summary>
-    private static async Task<List<GitHubCommitInfo>?> GetCommitsBetweenTagsAsync(string? baseTag, string headTag)
-    {
-        try
-        {
-            // If no base tag, get the commits from the head tag only
-            var url = string.IsNullOrEmpty(baseTag)
-                ? $"https://api.github.com/repos/{GitHubRepo}/commits?sha={headTag}&per_page=10"
-                : $"https://api.github.com/repos/{GitHubRepo}/compare/{baseTag}...{headTag}";
-
-            var response = await HttpClient.GetAsync(url);
-
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            if (string.IsNullOrEmpty(baseTag))
-            {
-                // Direct commits list
-                var commits = await response.Content.ReadFromJsonAsync<List<GitHubCommit>>();
-                return commits?.Select(c => new GitHubCommitInfo { Message = c.Commit?.Message }).ToList();
-            }
-            else
-            {
-                // Compare response
-                var compareResult = await response.Content.ReadFromJsonAsync<GitHubCompareResult>();
-                return compareResult?.Commits?.Select(c => new GitHubCommitInfo { Message = c.Commit?.Message }).ToList();
-            }
         }
         catch
         {
@@ -584,26 +518,4 @@ public class VersionChecker
         public string? Body { get; set; }
     }
 
-    private class GitHubCommit
-    {
-        [JsonPropertyName("commit")]
-        public GitHubCommitDetail? Commit { get; set; }
-    }
-
-    private class GitHubCommitDetail
-    {
-        [JsonPropertyName("message")]
-        public string? Message { get; set; }
-    }
-
-    private class GitHubCompareResult
-    {
-        [JsonPropertyName("commits")]
-        public List<GitHubCommit>? Commits { get; set; }
-    }
-
-    private class GitHubCommitInfo
-    {
-        public string? Message { get; set; }
-    }
 }

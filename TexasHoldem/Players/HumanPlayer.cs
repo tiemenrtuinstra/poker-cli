@@ -240,6 +240,11 @@ public class HumanPlayer : IPlayer
         IsActive = Chips > 0;
     }
 
+    public void ResetForNewGame()
+    {
+        Reset(); // Human players have no stats to reset
+    }
+
     public void ShowCards()
     {
         AnsiConsole.MarkupLine($"[bold]{Name}[/]'s cards: {string.Join(" ", HoleCards.Select(c => c.GetDisplayString()))}");

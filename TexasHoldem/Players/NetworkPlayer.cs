@@ -301,6 +301,12 @@ public class NetworkPlayer : IPlayer
         }
     }
 
+    public void ResetForNewGame()
+    {
+        Reset();
+        // Network players have no stats to reset
+    }
+
     public void ShowCards()
     {
         // Network players' cards are shown via network messages

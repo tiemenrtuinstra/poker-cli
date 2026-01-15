@@ -176,6 +176,13 @@ public class Round
         _gameUI.DisplayShowdownHands(playersInShowdown, _gameState.CommunityCards);
         await Task.Delay(2000);
 
+        // Create side pots if any players are all-in with different stack sizes
+        var allInPlayers = _gameState.Players.Where(p => p.IsAllIn).ToList();
+        if (allInPlayers.Any())
+        {
+            _pot.CreateSidePots(_gameState.Players.ToList(), _gameState.TotalContributions);
+        }
+
         // Distribute winnings
         var winners = _pot.DistributePots(playersInShowdown, player =>
             HandEvaluator.EvaluateHand(player.HoleCards.Concat(_gameState.CommunityCards)));
@@ -242,11 +249,32 @@ public class Round
                 _gameState.CurrentPlayerPosition = currentPlayerPos;
                 var action = currentPlayer.TakeTurn(_gameState);
 
-                // Validate action
+                // Validate action - if invalid, explain why and use fallback
                 if (!BettingLogic.IsValidAction(currentPlayer, action.Action, action.Amount, _gameState))
                 {
-                    _gameUI.DisplayPlayerAction(currentPlayer, action.Action, action.Amount, "Invalid action!");
-                    continue;
+                    var reason = GetInvalidActionReason(currentPlayer, action, _gameState);
+                    _gameUI.ShowColoredMessage($"  ⚠️ Invalid action: {reason}", ConsoleColor.Yellow);
+
+                    // Use fallback action for AI players to prevent infinite loops
+                    if (currentPlayer is not HumanPlayer)
+                    {
+                        var callAmount = Math.Max(0, _gameState.CurrentBet - _gameState.GetPlayerBetThisRound(currentPlayer));
+                        if (callAmount == 0)
+                        {
+                            action = new PlayerAction { PlayerId = currentPlayer.Name, Action = ActionType.Check, Amount = 0, BettingPhase = _gameState.BettingPhase };
+                            _gameUI.ShowColoredMessage($"  → {currentPlayer.Name} checks instead", ConsoleColor.DarkGray);
+                        }
+                        else
+                        {
+                            action = new PlayerAction { PlayerId = currentPlayer.Name, Action = ActionType.Fold, Amount = 0, BettingPhase = _gameState.BettingPhase };
+                            _gameUI.ShowColoredMessage($"  → {currentPlayer.Name} folds instead", ConsoleColor.DarkGray);
+                        }
+                    }
+                    else
+                    {
+                        // Human players get to try again
+                        continue;
+                    }
                 }
 
                 // Process the action
@@ -301,15 +329,28 @@ public class Round
         _gameState.PlayerBets[smallBlindPlayer.Name] = actualSmallBlind;
         _gameState.PlayerBets[bigBlindPlayer.Name] = actualBigBlind;
 
+        // Track total contributions for side pot calculation
+        _gameState.TotalContributions[smallBlindPlayer.Name] = actualSmallBlind;
+        _gameState.TotalContributions[bigBlindPlayer.Name] = actualBigBlind;
+
         // Store blind positions for action order
         _gameState.SmallBlindPosition = smallBlindPos;
         _gameState.BigBlindPosition = bigBlindPos;
 
         if (_gameState.AnteAmount > 0)
         {
+            // Track ante contributions BEFORE posting (to get actual amounts)
+            foreach (var player in _gameState.Players.Where(p => p.IsActive && p.Chips > 0))
+            {
+                var actualAnte = Math.Min(_gameState.AnteAmount, player.Chips);
+                _gameState.TotalContributions[player.Name] =
+                    _gameState.TotalContributions.GetValueOrDefault(player.Name, 0) + actualAnte;
+            }
+
             _dealer.PostAntes(_gameState.Players, _gameState.AnteAmount);
-            var activePlayerCount = _gameState.Players.Count(p => p.IsActive);
-            _pot.AddToMainPot(_gameState.AnteAmount * activePlayerCount);
+            var anteTotal = _gameState.Players.Where(p => p.IsActive).Sum(p =>
+                Math.Min(_gameState.AnteAmount, p.Chips + _gameState.AnteAmount)); // Chips already reduced
+            _pot.AddToMainPot(_gameState.AnteAmount * _gameState.Players.Count(p => p.IsActive));
         }
 
         _gameState.CurrentBet = _gameState.BigBlindAmount;
@@ -343,6 +384,35 @@ public class Round
         _gameUI.DisplayHandSummary(_pot.TotalPotAmount, _bettingSummaries.Count, _gameState.Players);
 
         await Task.Delay(3000); // Give time to review results
+    }
+
+    private string GetInvalidActionReason(IPlayer player, PlayerAction action, GameState gameState)
+    {
+        var callAmount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(player));
+        var alreadyBet = gameState.GetPlayerBetThisRound(player);
+
+        return action.Action switch
+        {
+            ActionType.Check when callAmount > 0 =>
+                $"Cannot check - must call €{callAmount} or fold",
+            ActionType.Call when callAmount == 0 =>
+                "Nothing to call - use check instead",
+            ActionType.Call when callAmount > player.Chips =>
+                $"Not enough chips to call €{callAmount} (have €{player.Chips})",
+            ActionType.Bet when gameState.CurrentBet > 0 =>
+                $"Cannot bet - there's already a bet of €{gameState.CurrentBet}, use raise instead",
+            ActionType.Bet when action.Amount > player.Chips =>
+                $"Cannot bet €{action.Amount} - only have €{player.Chips}",
+            ActionType.Raise when gameState.CurrentBet == 0 =>
+                "Cannot raise - no bet to raise, use bet instead",
+            ActionType.Raise when action.Amount < gameState.CurrentBet * 2 =>
+                $"Raise too small - minimum raise is €{gameState.CurrentBet * 2}",
+            ActionType.Raise when (action.Amount - alreadyBet) > player.Chips =>
+                $"Not enough chips - need €{action.Amount - alreadyBet} but only have €{player.Chips}",
+            ActionType.AllIn when player.Chips <= 0 =>
+                "Cannot go all-in with no chips",
+            _ => $"{action.Action} is not valid in current situation"
+        };
     }
 
     public RoundResult GetResult()

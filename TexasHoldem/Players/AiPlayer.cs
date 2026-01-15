@@ -56,6 +56,18 @@ public abstract class AiPlayer : IPlayer
         IsActive = Chips > 0;
     }
 
+    /// <summary>
+    /// Resets AI stats for a completely new game session.
+    /// Call this when starting a fresh game, not between hands.
+    /// </summary>
+    public virtual void ResetForNewGame()
+    {
+        Reset();
+        _opponentStats.Clear();
+        _handsPlayed = 0;
+        _handsWon = 0;
+    }
+
     public virtual void ShowCards()
     {
         Console.WriteLine($"{Name}'s cards: {string.Join(" ", HoleCards.Select(c => c.GetDisplayString()))}");

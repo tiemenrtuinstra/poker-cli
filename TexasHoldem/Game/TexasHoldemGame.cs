@@ -189,6 +189,7 @@ public class TexasHoldemGame
         _gameState.PlayerBets.Clear();
         _gameState.PlayerHasFolded.Clear();
         _gameState.PlayerHasActed.Clear();
+        _gameState.TotalContributions.Clear(); // Clear contributions for side pot calculation
 
         // Show preparing for next hand with new dealer
         var newDealer = _gameState.Players[_gameState.DealerPosition].Name;

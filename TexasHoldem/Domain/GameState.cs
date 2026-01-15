@@ -30,6 +30,12 @@ public class GameState
     public Dictionary<string, bool> PlayerHasActed { get; set; } = new();
     public Dictionary<string, int> PlayerChips { get; set; } = new();
 
+    /// <summary>
+    /// Tracks total contributions per player across ALL betting rounds in current hand.
+    /// Used for side pot calculation. Reset at start of each new hand.
+    /// </summary>
+    public Dictionary<string, int> TotalContributions { get; set; } = new();
+
     [JsonIgnore]
     public IPlayer? CurrentPlayer => CurrentPlayerPosition < Players.Count ? Players[CurrentPlayerPosition] : null;
 
@@ -73,7 +79,8 @@ public class GameState
             PlayerBets = new Dictionary<string, int>(PlayerBets),
             PlayerHasFolded = new Dictionary<string, bool>(PlayerHasFolded),
             PlayerHasActed = new Dictionary<string, bool>(PlayerHasActed),
-            PlayerChips = new Dictionary<string, int>(PlayerChips)
+            PlayerChips = new Dictionary<string, int>(PlayerChips),
+            TotalContributions = new Dictionary<string, int>(TotalContributions)
         };
     }
 
@@ -103,6 +110,7 @@ public class GameState
         if (amount > 0)
         {
             PlayerBets[player.Name] = PlayerBets.GetValueOrDefault(player.Name, 0) + amount;
+            TotalContributions[player.Name] = TotalContributions.GetValueOrDefault(player.Name, 0) + amount;
             TotalPot += amount;
         }
 

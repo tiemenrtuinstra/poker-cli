@@ -14,13 +14,16 @@ public class BettingLogic
 
         var callAmount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(player));
 
+        var alreadyBet = gameState.GetPlayerBetThisRound(player);
+
         return action switch
         {
             ActionType.Fold => true, // Can always fold
             ActionType.Check => callAmount == 0, // Can only check if no bet to call
             ActionType.Call => callAmount > 0 && callAmount <= player.Chips,
             ActionType.Bet => gameState.CurrentBet == 0 && amount > 0 && amount <= player.Chips,
-            ActionType.Raise => gameState.CurrentBet > 0 && amount >= GetMinimumRaise(gameState) && amount <= player.Chips,
+            // For raise: amount is the TOTAL new bet level, but we need (amount - alreadyBet) from chips
+            ActionType.Raise => gameState.CurrentBet > 0 && amount >= GetMinimumRaise(gameState) && (amount - alreadyBet) <= player.Chips,
             ActionType.AllIn => player.Chips > 0,
             _ => false
         };
@@ -40,6 +43,8 @@ public class BettingLogic
 
     public static void ProcessAction(IPlayer player, PlayerAction action, GameState gameState, Pot pot)
     {
+        int chipsActuallyAdded = 0; // Track actual chips added to pot for correct tracking
+
         switch (action.Action)
         {
             case ActionType.Fold:
@@ -56,6 +61,7 @@ public class BettingLogic
                 if (player.RemoveChips(callAmount))
                 {
                     pot.AddToMainPot(callAmount);
+                    chipsActuallyAdded = callAmount;
                     // Check if player used all their chips (after removal, chips would be 0)
                     if (player.Chips == 0)
                     {
@@ -73,6 +79,7 @@ public class BettingLogic
                 if (player.RemoveChips(action.Amount))
                 {
                     pot.AddToMainPot(action.Amount);
+                    chipsActuallyAdded = action.Amount;
                     gameState.CurrentBet = action.Amount;
 
                     // Check if player used all their chips (after removal, chips would be 0)
@@ -89,9 +96,13 @@ public class BettingLogic
                 break;
 
             case ActionType.Raise:
-                if (player.RemoveChips(action.Amount))
+                // action.Amount is the TOTAL new bet level, but player may have already bet some
+                var alreadyBetForRaise = gameState.GetPlayerBetThisRound(player);
+                var raiseChipsNeeded = action.Amount - alreadyBetForRaise;
+                if (raiseChipsNeeded > 0 && player.RemoveChips(raiseChipsNeeded))
                 {
-                    pot.AddToMainPot(action.Amount);
+                    pot.AddToMainPot(raiseChipsNeeded);
+                    chipsActuallyAdded = raiseChipsNeeded;
                     gameState.CurrentBet = action.Amount;
 
                     // Check if player used all their chips (after removal, chips would be 0)
@@ -112,12 +123,15 @@ public class BettingLogic
                 if (player.RemoveChips(allInAmount))
                 {
                     pot.AddToMainPot(allInAmount);
+                    chipsActuallyAdded = allInAmount;
                     player.IsAllIn = true;
-                    
-                    if (allInAmount > gameState.CurrentBet)
+
+                    var alreadyBetBeforeAllIn = gameState.GetPlayerBetThisRound(player);
+                    var totalBetAfterAllIn = alreadyBetBeforeAllIn + allInAmount;
+                    if (totalBetAfterAllIn > gameState.CurrentBet)
                     {
-                        gameState.CurrentBet = allInAmount;
-                        Console.WriteLine($"💥 {player.Name} goes ALL-IN for €{allInAmount}! (Raise)");
+                        gameState.CurrentBet = totalBetAfterAllIn;
+                        Console.WriteLine($"💥 {player.Name} goes ALL-IN for €{allInAmount}! (Raise to €{totalBetAfterAllIn})");
                     }
                     else
                     {
@@ -127,7 +141,8 @@ public class BettingLogic
                 break;
         }
 
-        gameState.AddPlayerAction(player, action.Action, action.Amount);
+        // Track the ACTUAL chips added, not the action.Amount (which for Raise is the total bet level)
+        gameState.AddPlayerAction(player, action.Action, chipsActuallyAdded);
     }
 
     public static bool IsBettingRoundComplete(List<IPlayer> activePlayers, GameState gameState)

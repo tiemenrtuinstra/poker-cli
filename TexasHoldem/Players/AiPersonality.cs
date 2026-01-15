@@ -527,30 +527,47 @@ public static class AiPersonality
     private static double EvaluateHoleCards(List<Card> holeCards)
     {
         if (holeCards.Count != 2) return 0.0;
-        
+
         var card1 = holeCards[0];
         var card2 = holeCards[1];
-        
+        var rank1 = (int)card1.Rank;
+        var rank2 = (int)card2.Rank;
+
+        // Pocket pairs - all pairs beat non-pair hands preflop
+        // Range: 22 = ~0.72, AA = 1.0
         if (card1.Rank == card2.Rank)
         {
-            var pairStrength = (int)card1.Rank / 14.0;
-            return 0.6 + (pairStrength * 0.4);
+            // Base value for any pair is 0.7 (even 22 has ~50% equity)
+            // Scale up to 1.0 for AA
+            var pairRank = (rank1 - 2) / 12.0; // 0.0 for 22, 1.0 for AA
+            return 0.70 + (pairRank * 0.30);
         }
-        
+
         bool suited = card1.Suit == card2.Suit;
-        var highCard = (int)((int)card1.Rank > (int)card2.Rank ? card1.Rank : card2.Rank);
-        var lowCard = (int)((int)card1.Rank < (int)card2.Rank ? card1.Rank : card2.Rank);
-        
-        double strength = (highCard + lowCard) / 28.0;
-        
-        if (suited) strength += 0.1;
-        
-        if (Math.Abs((int)card1.Rank - (int)card2.Rank) == 1)
+        var highCard = Math.Max(rank1, rank2);
+        var lowCard = Math.Min(rank1, rank2);
+        var gap = highCard - lowCard;
+
+        // Base strength from high card (Ace high = stronger starting hand)
+        // High card contributes 60%, kicker contributes 40%
+        double strength = (highCard * 0.6 + lowCard * 0.4) / 14.0;
+
+        // Suited bonus: +0.08 (increases straight/flush potential)
+        if (suited) strength += 0.08;
+
+        // Connectedness bonus (good for straights)
+        if (gap == 1) strength += 0.05;       // Connectors (87, KQ)
+        else if (gap == 2) strength += 0.03;  // One-gappers (97, KJ)
+        else if (gap == 3) strength += 0.01;  // Two-gappers (T7, KT)
+
+        // Broadway cards bonus (both cards T or higher make strong top pairs)
+        if (highCard >= 10 && lowCard >= 10)
         {
             strength += 0.05;
         }
-        
-        return Math.Min(strength, 1.0);
+
+        // Cap non-pair hands below pairs (max ~0.68 for AKs, below 22's 0.70)
+        return Math.Min(strength, 0.68);
     }
 
     private static double CalculatePotOdds(GameState gameState, IPlayer player)
