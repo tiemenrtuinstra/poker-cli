@@ -88,15 +88,54 @@ public class VersionChecker
                     ? "[yellow]↑ Upgrade[/]"
                     : "[dim]↓ Downgrade[/]";
 
-            var releasedDate = release.PublishedAt?.ToString("yyyy-MM-dd") ?? "Unknown";
+            var releasedDateTime = release.PublishedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "Unknown";
             var versionDisplay = releaseVersion == currentVersion
                 ? $"[green]{release.TagName}[/]"
                 : $"[cyan]{release.TagName}[/]";
 
-            table.AddRow(versionDisplay, status, $"[dim]{releasedDate}[/]");
+            table.AddRow(versionDisplay, status, $"[dim]{releasedDateTime}[/]");
         }
 
         AnsiConsole.Write(table);
+        AnsiConsole.WriteLine();
+
+        // Show changelog for latest versions
+        AnsiConsole.Write(new Rule("[bold cyan]Changelogs[/]").RuleStyle("cyan"));
+        AnsiConsole.WriteLine();
+
+        foreach (var release in releases.Take(5))
+        {
+            var releaseVersion = ParseVersion(release.TagName ?? "0.0.0");
+            var versionColor = releaseVersion == currentVersion ? "green" : "cyan";
+            var currentMarker = releaseVersion == currentVersion ? " [green](current)[/]" : "";
+
+            AnsiConsole.MarkupLine($"[bold {versionColor}]{release.TagName}[/]{currentMarker} - [dim]{release.PublishedAt?.ToLocalTime():yyyy-MM-dd HH:mm}[/]");
+
+            if (!string.IsNullOrWhiteSpace(release.Body))
+            {
+                // Parse and display changelog - indent each line
+                var changelogLines = release.Body
+                    .Split('\n')
+                    .Select(line => line.Trim())
+                    .Where(line => !string.IsNullOrEmpty(line))
+                    .Take(10); // Limit lines per release
+
+                foreach (var line in changelogLines)
+                {
+                    // Escape markup characters and add indent
+                    var safeLine = Markup.Escape(line);
+                    AnsiConsole.MarkupLine($"  [dim]{safeLine}[/]");
+                }
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("  [dim]No changelog available[/]");
+            }
+
+            AnsiConsole.WriteLine();
+        }
+
+        AnsiConsole.Write(new Rule().RuleStyle("grey"));
         AnsiConsole.WriteLine();
 
         // Show current version and repo info
@@ -497,5 +536,8 @@ public class VersionChecker
 
         [JsonPropertyName("published_at")]
         public DateTime? PublishedAt { get; set; }
+
+        [JsonPropertyName("body")]
+        public string? Body { get; set; }
     }
 }
