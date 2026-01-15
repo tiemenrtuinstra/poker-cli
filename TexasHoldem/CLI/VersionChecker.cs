@@ -427,15 +427,21 @@ public class VersionChecker
     {
         var assembly = Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;
-        return version ?? new Version(1, 0, 0);
+        // Normalize to 3 components (Major.Minor.Build) for consistent comparison
+        return version != null
+            ? new Version(version.Major, version.Minor, version.Build)
+            : new Version(1, 0, 0);
     }
 
     private static Version ParseVersion(string tagName)
     {
         var versionString = tagName.TrimStart('v', 'V');
-        return Version.TryParse(versionString, out var version)
-            ? version
-            : new Version(0, 0, 0);
+        if (Version.TryParse(versionString, out var version))
+        {
+            // Normalize to 3 components for consistent comparison
+            return new Version(version.Major, version.Minor, Math.Max(0, version.Build));
+        }
+        return new Version(0, 0, 0);
     }
 
     private static async Task<GitHubRelease?> GetLatestReleaseAsync()
