@@ -99,8 +99,9 @@ public class VersionChecker
         AnsiConsole.Write(table);
         AnsiConsole.WriteLine();
 
-        // Show current version info
+        // Show current version and repo info
         AnsiConsole.MarkupLine($"[dim]Your current version:[/] [green]{currentVersion.ToString(3)}[/]");
+        AnsiConsole.MarkupLine($"[dim]GitHub:[/] [link=https://github.com/{GitHubRepo}]https://github.com/{GitHubRepo}[/]");
         AnsiConsole.WriteLine();
 
         // Ask what the user wants to do
