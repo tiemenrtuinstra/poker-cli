@@ -76,11 +76,36 @@ jobs:
           echo "New version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create and push tag
+      - name: Update version in csproj
+        run: |
+          VERSION="${{ steps.bump.outputs.new_version }}"
+          VERSION_NUM="${VERSION#v}"  # Remove 'v' prefix
+
+          echo "Updating TexasHoldem.csproj to version ${VERSION_NUM}..."
+
+          # Update all version fields in csproj
+          sed -i "s|<Version>.*</Version>|<Version>${VERSION_NUM}</Version>|g" ${{ env.PROJECT_PATH }}
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>${VERSION_NUM}.0</AssemblyVersion>|g" ${{ env.PROJECT_PATH }}
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>${VERSION_NUM}.0</FileVersion>|g" ${{ env.PROJECT_PATH }}
+          sed -i "s|<InformationalVersion>.*</InformationalVersion>|<InformationalVersion>${VERSION_NUM}</InformationalVersion>|g" ${{ env.PROJECT_PATH }}
+
+          echo "Updated csproj:"
+          grep -E "(Version|AssemblyVersion|FileVersion|InformationalVersion)" ${{ env.PROJECT_PATH }}
+
+      - name: Commit version update and create tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit the version update
+          git add ${{ env.PROJECT_PATH }}
+          git commit -m "Bump version to ${{ steps.bump.outputs.new_version }}"
+
+          # Create and push tag on the new commit
           git tag ${{ steps.bump.outputs.new_version }}
+
+          # Push both the commit and tag
+          git push origin HEAD:${{ github.ref_name }}
           git push origin ${{ steps.bump.outputs.new_version }}
 
   # Determine which version to build

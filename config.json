@@ -21,26 +21,20 @@
     "thinkingDelayMax": 2000,
     "enablePokerTalk": true,
     "pokerTalkFrequency": 0.2,
-
-    "// NOTE": "API keys should be stored in .env file, not here!",
-    "// See .env.example for the format": "",
-
-    "// Which providers to use (None, Claude, Gemini, OpenAI)": "",
-    "// Players are distributed among enabled providers": "",
-    "enabledProviders": ["Claude", "Gemini", "OpenAI"],
-
-    "// Model names (can also be set via env vars)": "",
-    "claudeModel": "claude-sonnet-4-20250514",
-    "geminiModel": "gemini-2.0-flash",
-    "openAiModel": "gpt-4o-mini",
-
-    "// Legacy: API keys here as fallback (prefer .env file!)": "",
     "claudeApiKey": "",
     "geminiApiKey": "",
-    "openAiApiKey": ""
+    "openAiApiKey": "",
+    "enabledProviders": [
+      "Claude",
+      "Gemini",
+      "OpenAI"
+    ],
+    "claudeModel": "claude-sonnet-4-20250514",
+    "geminiModel": "gemini-2.0-flash",
+    "openAiModel": "gpt-4o-mini"
   },
   "display": {
-    "animationSpeed": 1.0,
+    "animationSpeed": 1,
     "showHandRankings": true,
     "clearScreenBetweenHands": false
   },
@@ -51,7 +45,11 @@
     "logLevel": "Info"
   },
   "playerNames": {
-    "defaultHumanNames": ["Player 1", "Player 2", "Player 3"],
+    "defaultHumanNames": [
+      "Player 1",
+      "Player 2",
+      "Player 3"
+    ],
     "useFunnyAiNames": true,
     "customAiNames": []
   }

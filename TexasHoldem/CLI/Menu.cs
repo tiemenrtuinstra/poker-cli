@@ -82,50 +82,36 @@ public class Menu
     {
         AnsiConsole.Clear();
 
-        var consoleWidth = Console.WindowWidth;
-
-        // ASCII Art Cards Header - centered
-        var cardsLines = new[]
-        {
+        // ASCII Art Cards Header - centered using Spectre.Console Align
+        var cardsArt = string.Join("\n",
             "[red]┌─────┐ ┌─────┐[/] [blue]┌─────┐ ┌─────┐[/]",
             "[red]│A    │ │K    │[/] [blue]│Q    │ │J    │[/]",
             "[red]│  ♥  │ │  ♦  │[/] [blue]│  ♠  │ │  ♣  │[/]",
             "[red]│    A│ │    K│[/] [blue]│    Q│ │    J│[/]",
             "[red]└─────┘ └─────┘[/] [blue]└─────┘ └─────┘[/]"
-        };
+        );
 
         AnsiConsole.WriteLine();
-        foreach (var line in cardsLines)
-        {
-            var padding = Math.Max(0, (consoleWidth - 31) / 2);
-            AnsiConsole.MarkupLine(new string(' ', padding) + line);
-        }
-
+        AnsiConsole.Write(Align.Center(new Markup(cardsArt)));
+        AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
 
-        // ASCII Art Title - TEXAS HOLD'EM
-        var titleLines = new[]
-        {
+        // ASCII Art Title - TEXAS HOLD'EM - centered
+        var titleArt = string.Join("\n",
             "[green] _____   _____  __  __     _      ____      _   _    ___    _       ____    _   _____   __  __[/]",
             "[green]|_   _| | ____| \\ \\/ /    / \\    / ___|    | | | |  / _ \\  | |     |  _ \\  ( ) | ____| |  \\/  |[/]",
             "[green]  | |   |  _|    \\  /    / _ \\   \\___ \\    | |_| | | | | | | |     | | | | |/  |  _|   | |\\/| |[/]",
             "[green]  | |   | |___   /  \\   / ___ \\   ___) |   |  _  | | |_| | | |___  | |_| |     | |___  | |  | |[/]",
             "[green]  |_|   |_____| /_/\\_\\ /_/   \\_\\ |____/    |_| |_|  \\___/  |_____| |____/      |_____| |_|  |_|[/]"
-        };
+        );
 
-        foreach (var line in titleLines)
-        {
-            var padding = Math.Max(0, (consoleWidth - 95) / 2);
-            AnsiConsole.MarkupLine(new string(' ', padding) + line);
-        }
-
+        AnsiConsole.Write(Align.Center(new Markup(titleArt)));
+        AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
 
         // Subtitle - centered
-        var subtitle = "[bold yellow]♠ ♥ ♦ ♣[/]  [italic]The Ultimate CLI Poker Experience[/]  [bold yellow]♣ ♦ ♥ ♠[/]";
-        var subtitlePadding = Math.Max(0, (consoleWidth - 52) / 2);
-        AnsiConsole.MarkupLine(new string(' ', subtitlePadding) + subtitle);
-
+        AnsiConsole.Write(Align.Center(new Markup("[bold yellow]♠ ♥ ♦ ♣[/]  [italic]The Ultimate CLI Poker Experience[/]  [bold yellow]♣ ♦ ♥ ♠[/]")));
+        AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
 
         // Info table - centered
@@ -144,12 +130,11 @@ public class Menu
         AnsiConsole.Write(infoTable);
         AnsiConsole.WriteLine();
 
-        // Version info - simple version number
+        // Version info - centered
         var version = Assembly.GetExecutingAssembly().GetName().Version;
-        var versionStr = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
-        var versionLine = $"[dim]Version {versionStr} • Made with ♥ in The Netherlands[/]";
-        var versionPadding = Math.Max(0, (consoleWidth - 50) / 2);
-        AnsiConsole.MarkupLine(new string(' ', versionPadding) + versionLine);
+        var versionStr = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.2.0";
+        AnsiConsole.Write(Align.Center(new Markup($"[dim]Version {versionStr} • Made with ♥ in The Netherlands[/]")));
+        AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
     }
 
