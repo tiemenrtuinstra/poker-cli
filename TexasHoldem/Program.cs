@@ -17,7 +17,9 @@ internal class Program
             {
                 case "--update":
                 case "-u":
-                    return await VersionChecker.RunUpdateCommandAsync();
+                    // Check if a specific version was provided
+                    string? targetVersion = args.Length > 1 ? args[1] : null;
+                    return await VersionChecker.RunUpdateCommandAsync(targetVersion);
 
                 case "--version":
                 case "-v":
@@ -66,10 +68,16 @@ internal class Program
         Console.WriteLine("Usage: poker-cli [options]");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  --update, -u     Check for updates and install if available");
-        Console.WriteLine("  --version, -v    Display the current version");
-        Console.WriteLine("  --help, -h       Show this help message");
+        Console.WriteLine("  --update, -u [version]  Manage versions (upgrade, downgrade, or reinstall)");
+        Console.WriteLine("                          Without version: interactive version selector");
+        Console.WriteLine("                          With version: install specific version (e.g. v1.2.0)");
+        Console.WriteLine("  --version, -v           Display the current version");
+        Console.WriteLine("  --help, -h              Show this help message");
         Console.WriteLine();
-        Console.WriteLine("Run without options to start the game.");
+        Console.WriteLine("Examples:");
+        Console.WriteLine("  poker-cli               Start the game");
+        Console.WriteLine("  poker-cli --update      Open interactive version manager");
+        Console.WriteLine("  poker-cli -u v1.2.0     Install specific version v1.2.0");
+        Console.WriteLine("  poker-cli --version     Show current version");
     }
 }

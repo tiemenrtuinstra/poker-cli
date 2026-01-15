@@ -26,64 +26,187 @@ public class VersionChecker
     /// <summary>
     /// Run the --update command: check for updates and optionally install
     /// </summary>
-    public static async Task<int> RunUpdateCommandAsync()
+    public static async Task<int> RunUpdateCommandAsync(string? targetVersion = null)
     {
         var currentVersion = GetCurrentVersion();
 
-        AnsiConsole.Write(new FigletText("Poker CLI").Color(Color.Green));
-        AnsiConsole.MarkupLine($"[dim]Current version:[/] [cyan]{currentVersion.ToString(3)}[/]");
-        AnsiConsole.WriteLine();
+        // Show the Texas Hold'em header
+        HeaderDisplay.ShowHeader("[bold yellow]♠ ♥ ♦ ♣[/]  [italic]Version Manager[/]  [bold yellow]♣ ♦ ♥ ♠[/]");
 
-        GitHubRelease? latestRelease = null;
+        List<GitHubRelease>? releases = null;
 
         await AnsiConsole.Status()
-            .StartAsync("Checking for updates...", async ctx =>
+            .Spinner(Spinner.Known.Dots)
+            .StartAsync("[cyan]Fetching available versions from GitHub...[/]", async ctx =>
             {
-                latestRelease = await GetLatestReleaseAsync();
+                releases = await GetAllReleasesAsync();
             });
 
-        if (latestRelease == null || string.IsNullOrEmpty(latestRelease.TagName))
+        if (releases == null || releases.Count == 0)
         {
-            AnsiConsole.MarkupLine("[red]Failed to check for updates. Please check your internet connection.[/]");
+            AnsiConsole.MarkupLine("[red]Failed to fetch releases. Please check your internet connection.[/]");
             return 1;
         }
 
-        var latestVersion = ParseVersion(latestRelease.TagName);
+        // If a specific version was requested via command line
+        if (!string.IsNullOrEmpty(targetVersion))
+        {
+            var normalizedTarget = targetVersion.TrimStart('v', 'V');
+            var targetRelease = releases.FirstOrDefault(r =>
+                r.TagName?.TrimStart('v', 'V') == normalizedTarget);
 
-        AnsiConsole.MarkupLine($"[dim]Latest version:[/]  [cyan]{latestVersion.ToString(3)}[/]");
+            if (targetRelease == null)
+            {
+                AnsiConsole.MarkupLine($"[red]Version {targetVersion} not found.[/]");
+                AnsiConsole.MarkupLine("[dim]Available versions:[/]");
+                foreach (var r in releases.Take(10))
+                {
+                    AnsiConsole.MarkupLine($"  [cyan]{r.TagName}[/]");
+                }
+                return 1;
+            }
+
+            return await PerformUpdateAsync(targetRelease);
+        }
+
+        // Show version table
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Grey)
+            .Title("[bold cyan]Available Versions[/]")
+            .AddColumn(new TableColumn("[bold]Version[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Status[/]").Centered())
+            .AddColumn(new TableColumn("[bold]Released[/]").Centered())
+            .Centered();
+
+        foreach (var release in releases.Take(15))
+        {
+            var releaseVersion = ParseVersion(release.TagName ?? "0.0.0");
+            var status = releaseVersion == currentVersion
+                ? "[green]● Current[/]"
+                : releaseVersion > currentVersion
+                    ? "[yellow]↑ Upgrade[/]"
+                    : "[dim]↓ Downgrade[/]";
+
+            var releasedDate = release.PublishedAt?.ToString("yyyy-MM-dd") ?? "Unknown";
+            var versionDisplay = releaseVersion == currentVersion
+                ? $"[green]{release.TagName}[/]"
+                : $"[cyan]{release.TagName}[/]";
+
+            table.AddRow(versionDisplay, status, $"[dim]{releasedDate}[/]");
+        }
+
+        AnsiConsole.Write(table);
         AnsiConsole.WriteLine();
 
-        if (latestVersion <= currentVersion)
+        // Show current version info
+        AnsiConsole.MarkupLine($"[dim]Your current version:[/] [green]{currentVersion.ToString(3)}[/]");
+        AnsiConsole.WriteLine();
+
+        // Ask what the user wants to do
+        var choices = new List<string> { "Select a version to install", "Cancel" };
+        var latestVersion = ParseVersion(releases[0].TagName ?? "0.0.0");
+
+        if (latestVersion > currentVersion)
         {
-            AnsiConsole.MarkupLine("[green]You are already running the latest version![/]");
+            choices.Insert(0, $"⚡ Quick upgrade to latest ({releases[0].TagName})");
+        }
+
+        var action = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold green]What would you like to do?[/]")
+                .PageSize(5)
+                .HighlightStyle(new Style(Color.Black, Color.Green))
+                .AddChoices(choices));
+
+        if (action == "Cancel")
+        {
+            AnsiConsole.MarkupLine("[dim]Operation cancelled.[/]");
             return 0;
         }
 
-        // Show what's new
-        var panel = new Panel(
-            new Markup(
-                $"[yellow]A new version is available![/]\n\n" +
-                $"[dim]Current:[/] [red]{currentVersion.ToString(3)}[/]  →  [dim]Latest:[/] [green]{latestVersion.ToString(3)}[/]"
-            ))
-        {
-            Header = new PanelHeader("[bold yellow] Update Available [/]"),
-            Border = BoxBorder.Rounded,
-            BorderStyle = new Style(Color.Yellow),
-            Padding = new Padding(2, 1)
-        };
-        AnsiConsole.Write(panel);
-        AnsiConsole.WriteLine();
+        GitHubRelease? selectedRelease;
 
-        // Ask user if they want to update
-        var shouldUpdate = AnsiConsole.Confirm("Do you want to update now?");
-
-        if (!shouldUpdate)
+        if (action.StartsWith("⚡"))
         {
-            AnsiConsole.MarkupLine("[dim]Update cancelled.[/]");
+            selectedRelease = releases[0];
+        }
+        else
+        {
+            // Let user select a version
+            var versionChoices = releases
+                .Take(15)
+                .Select(r =>
+                {
+                    var v = ParseVersion(r.TagName ?? "0.0.0");
+                    var indicator = v == currentVersion ? " [green](current)[/]"
+                        : v > currentVersion ? " [yellow](upgrade)[/]"
+                        : " [dim](downgrade)[/]";
+                    return r.TagName + indicator;
+                })
+                .ToList();
+
+            var selectedVersion = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[bold cyan]Select a version to install:[/]")
+                    .PageSize(10)
+                    .HighlightStyle(new Style(Color.Black, Color.Cyan1))
+                    .AddChoices(versionChoices));
+
+            // Extract version tag from selection
+            var selectedTag = selectedVersion.Split(' ')[0];
+            selectedRelease = releases.FirstOrDefault(r => r.TagName == selectedTag);
+        }
+
+        if (selectedRelease == null)
+        {
+            AnsiConsole.MarkupLine("[red]Failed to find selected release.[/]");
+            return 1;
+        }
+
+        var selectedVer = ParseVersion(selectedRelease.TagName ?? "0.0.0");
+
+        if (selectedVer == currentVersion)
+        {
+            AnsiConsole.MarkupLine("[yellow]You already have this version installed.[/]");
+
+            if (!AnsiConsole.Confirm("Do you want to reinstall it anyway?", false))
+            {
+                return 0;
+            }
+        }
+
+        // Confirm the action
+        var actionType = selectedVer > currentVersion ? "upgrade" : selectedVer < currentVersion ? "downgrade" : "reinstall";
+        var confirmMessage = $"Do you want to [bold]{actionType}[/] from [cyan]{currentVersion.ToString(3)}[/] to [cyan]{selectedVer.ToString(3)}[/]?";
+
+        if (!AnsiConsole.Confirm(confirmMessage))
+        {
+            AnsiConsole.MarkupLine("[dim]Operation cancelled.[/]");
             return 0;
         }
 
-        return await PerformUpdateAsync(latestRelease);
+        return await PerformUpdateAsync(selectedRelease);
+    }
+
+    /// <summary>
+    /// Get all releases from GitHub
+    /// </summary>
+    private static async Task<List<GitHubRelease>?> GetAllReleasesAsync()
+    {
+        try
+        {
+            var response = await HttpClient.GetAsync($"https://api.github.com/repos/{GitHubRepo}/releases");
+
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadFromJsonAsync<List<GitHubRelease>>();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
