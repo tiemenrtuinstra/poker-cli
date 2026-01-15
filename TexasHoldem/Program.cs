@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Text;
 using TexasHoldem.CLI;
 using TexasHoldem.Game;
 
@@ -8,6 +9,10 @@ internal class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        // Enable UTF-8 output for proper display of € and emoji symbols
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.InputEncoding = Encoding.UTF8;
+
         // Handle command line arguments
         if (args.Length > 0)
         {
