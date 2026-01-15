@@ -23,34 +23,16 @@ public static class HeaderDisplay
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
 
-        // ASCII Art Title - Tiemen's Poker Texas Hold'em (big-money-sw font, rainbow)
-        var pokerArt = new[]
-        {
-            "[red] ________[/]  [orange1]__[/]                                              [yellow]__[/]                [lime]_______[/]            [green]__[/]",
-            "[red]/        |[/][orange1]/  |[/]                                            [yellow]/  |[/]              [lime]/       \\[/]          [green]/  |[/]",
-            "[red]$$$$$$$$/ [/][orange1]$$/[/]  [yellow]______[/]   [lime]___ ___   ______[/]   [green]_______[/]  [cyan]$$/[/] [blue]_______[/]      [magenta]$$$$$$$  |[/][hotpink]______[/]  [red]$$ |  __[/]   [orange1]______[/]    [yellow]______[/]",
-            "[red]   $$ |[/]   [orange1]/  |[/][yellow]/      \\[/] [lime]/       \\ /      \\[/] [green]/       |[/][cyan]/  |[/][blue]/       |[/]     [magenta]$$ |__$$ /[/][hotpink]      \\[/][red]$$ | /  |[/] [orange1]/      \\[/]  [yellow]/      \\[/]",
-            "[red]   $$ |[/]   [orange1]$$ |[/][yellow]$$$$$$  |[/][lime]$$$$$$$  |$$$$$$  |[/][green]$$$$$$$/ [/][cyan]$$ |[/][blue]$$$$$$$/ [/]     [magenta]$$    $$/ [/][hotpink]$$$$$$  |[/][red]$$  /$$/[/] [orange1]/$$$$$$  |[/][yellow]/$$$$$$  |[/]",
-            "[red]   $$ |[/]   [orange1]$$ |[/][yellow]$$ |  $$ |[/][lime]$$ |  $$ |$$ |  $$ |[/][green]$$      \\[/] [cyan]$$ |[/][blue]$$      \\[/]      [magenta]$$$$$$$/  [/][hotpink]$$ |  $$ |[/][red]$$$  \\[/]  [orange1]$$ |  $$ |[/][yellow]$$ |  $$/[/]",
-            "[red]   $$ |[/]   [orange1]$$ |[/][yellow]$$ \\__$$ |[/][lime]$$ |  $$ |$$ \\__$$ |[/][green] $$$$$$  |[/][cyan]$$ |[/] [blue]$$$$$$  |[/]    [magenta]$$ |[/]      [hotpink]$$ \\__$$ |[/][red]$$  $$ \\[/] [orange1]$$ \\__$$ |[/][yellow]$$ |[/]",
-            "[red]   $$ |[/]   [orange1]$$ |[/][yellow]$$    $$/ [/][lime]$$ |  $$ |$$    $$/ [/][green]/     $$/ [/][cyan]$$ |[/][blue]/     $$/ [/]    [magenta]$$ |[/]      [hotpink]$$    $$/ [/][red]$$ | $$  |[/][orange1]$$    $$/ [/][yellow]$$ |[/]",
-            "[red]   $$/[/]    [orange1]$$/[/]  [yellow]$$$$$$/[/]  [lime]$$/   $$/  $$$$$$/[/]  [green]$$$$$$$/[/]  [cyan]$$/[/] [blue]$$$$$$$/[/]      [magenta]$$/[/]        [hotpink]$$$$$$/[/]  [red]$$/   $$/[/]  [orange1]$$$$$$/[/]  [yellow]$$/[/]"
-        };
-
-        var holdemArt = new[]
-        {
-            "[red] ________[/]                                             [yellow]__    __[/]            [lime]__[/]        [green]__  __[/]",
-            "[red]/        |[/]                                           [yellow]/  |  /  |[/]          [lime]/  |[/]      [green]/  |/  |[/]",
-            "[red]$$$$$$$$/ [/][orange1]______[/]   [yellow]__    __[/]   [lime]______[/]    [green]_______[/]      [cyan]$$ |  $$ |[/] [blue]______[/]  [magenta]$$ |  ____[/][hotpink]$$ $$/[/][red]______[/]   [orange1]___ ___[/]",
-            "[red]   $$ |[/]  [orange1]/      \\[/] [yellow]/  \\  /  |[/] [lime]/      \\[/]  [green]/       |[/]     [cyan]$$ |__$$ |[/][blue]/      \\[/] [magenta]$$ | /    [/][hotpink]$$ /  |[/][red]/      \\[/] [orange1]/       \\[/]",
-            "[red]   $$ |[/] [orange1]/$$$$$$  |[/][yellow]$$  \\/$$/ [/][lime]/$$$$$$  |[/][green]$$$$$$$/ [/]     [cyan]$$    $$ |[/][blue]$$$$$$  |[/][magenta]$$  /$$$$[/][hotpink]$$ $$ |[/][red]$$$$$$  |[/][orange1]$$$$$$$  |[/]",
-            "[red]   $$ |[/] [orange1]$$ |  $$/[/]  [yellow]$$  $$<[/]  [lime]$$ |  $$ |[/][green]$$      \\[/]      [cyan]$$$$$$$$ |[/][blue]$$ |  $$ |[/][magenta]$$ |  $$ [/][hotpink]$$ $$ |[/][red]$$ |  $$ |[/][orange1]$$ |  $$ |[/]",
-            "[red]   $$ |[/] [orange1]$$ |[/]      [yellow]/$$$$  \\[/] [lime]$$ \\__$$ |[/] [green]$$$$$$  |[/]     [cyan]$$ |  $$ |[/][blue]$$ \\__$$ |[/][magenta]$$ \\__$$ [/][hotpink]$$ $$ |[/][red]$$ \\__$$ |[/][orange1]$$ |  $$ |[/]",
-            "[red]   $$ |[/] [orange1]$$ |[/]     [yellow]$$ /$$  |[/][lime]$$    $$/ [/][green]/     $$/ [/]     [cyan]$$ |  $$ |[/][blue]$$    $$/ [/][magenta]$$    $$ [/][hotpink]$$ $$ |[/][red]$$    $$/ [/][orange1]$$ |  $$ |[/]",
-            "[red]   $$/[/]  [orange1]$$/[/]      [yellow]$$/  $$/[/]  [lime]$$$$$$/[/]  [green]$$$$$$$/[/]       [cyan]$$/   $$/[/]  [blue]$$$$$$/[/]   [magenta]$$$$$$$/[/] [hotpink]$$/$$/[/]  [red]$$$$$$/[/]  [orange1]$$/   $$/[/]"
-        };
-
-        var titleArt = string.Join("\n", pokerArt) + "\n\n" + string.Join("\n", holdemArt);
+        // ASCII Art Title - Tiemen's Poker Texas Hold'em (clean readable font, rainbow)
+        var titleArt = string.Join("\n",
+            "[red]╔╦╗[/][orange1]╦[/][yellow]╔═╗[/][lime]╔╦╗[/][green]╔═╗[/][cyan]╔╗╔[/][blue]╦[/][purple]╔═╗[/]  [red]╔═╗[/][orange1]╔═╗[/][yellow]╦╔═[/][lime]╔═╗[/][green]╦═╗[/]",
+            "[red] ║ [/][orange1]║[/][yellow]║╣ [/][lime]║║║[/][green]║╣ [/][cyan]║║║[/][blue]║[/][purple]╚═╗[/]  [red]╠═╝[/][orange1]║ ║[/][yellow]╠╩╗[/][lime]║╣ [/][green]╠╦╝[/]",
+            "[red] ╩ [/][orange1]╩[/][yellow]╚═╝[/][lime]╩ ╩[/][green]╚═╝[/][cyan]╝╚╝[/][blue]╩[/][purple]╚═╝[/]  [red]╩  [/][orange1]╚═╝[/][yellow]╩ ╩[/][lime]╚═╝[/][green]╩╚═[/]",
+            "",
+            "[red]╔╦╗[/][orange1]╔═╗[/][yellow]═╗╔[/][lime]╔═╗[/][green]╔═╗[/]  [cyan]╦ ╦[/][blue]╔═╗[/][purple]╦  [/][magenta]╔╦╗[/][hotpink]╦[/][red]╔═╗[/][orange1]╔╦╗[/]",
+            "[red] ║ [/][orange1]║╣ [/][yellow]╔╩╦╝[/][lime]╠═╣[/][green]╚═╗[/]  [cyan]╠═╣[/][blue]║ ║[/][purple]║  [/][magenta] ║║[/][hotpink]║[/][red]║╣ [/][orange1]║║║[/]",
+            "[red] ╩ [/][orange1]╚═╝[/][yellow]╩ ╚═[/][lime]╩ ╩[/][green]╚═╝[/]  [cyan]╩ ╩[/][blue]╚═╝[/][purple]╩═╝[/][magenta]═╩╝[/][hotpink]╩[/][red]╚═╝[/][orange1]╩ ╩[/]"
+        );
 
         AnsiConsole.Write(Align.Center(new Markup(titleArt)));
         AnsiConsole.WriteLine();
