@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 using Spectre.Console;
 
@@ -12,13 +14,258 @@ public class VersionChecker
 
     private static readonly HttpClient HttpClient = new()
     {
-        Timeout = TimeSpan.FromSeconds(5)
+        Timeout = TimeSpan.FromSeconds(30)
     };
 
     static VersionChecker()
     {
         HttpClient.DefaultRequestHeaders.Add("User-Agent", "poker-cli");
         HttpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+    }
+
+    /// <summary>
+    /// Run the --update command: check for updates and optionally install
+    /// </summary>
+    public static async Task<int> RunUpdateCommandAsync()
+    {
+        var currentVersion = GetCurrentVersion();
+
+        AnsiConsole.Write(new FigletText("Poker CLI").Color(Color.Green));
+        AnsiConsole.MarkupLine($"[dim]Current version:[/] [cyan]{currentVersion.ToString(3)}[/]");
+        AnsiConsole.WriteLine();
+
+        GitHubRelease? latestRelease = null;
+
+        await AnsiConsole.Status()
+            .StartAsync("Checking for updates...", async ctx =>
+            {
+                latestRelease = await GetLatestReleaseAsync();
+            });
+
+        if (latestRelease == null || string.IsNullOrEmpty(latestRelease.TagName))
+        {
+            AnsiConsole.MarkupLine("[red]Failed to check for updates. Please check your internet connection.[/]");
+            return 1;
+        }
+
+        var latestVersion = ParseVersion(latestRelease.TagName);
+
+        AnsiConsole.MarkupLine($"[dim]Latest version:[/]  [cyan]{latestVersion.ToString(3)}[/]");
+        AnsiConsole.WriteLine();
+
+        if (latestVersion <= currentVersion)
+        {
+            AnsiConsole.MarkupLine("[green]You are already running the latest version![/]");
+            return 0;
+        }
+
+        // Show what's new
+        var panel = new Panel(
+            new Markup(
+                $"[yellow]A new version is available![/]\n\n" +
+                $"[dim]Current:[/] [red]{currentVersion.ToString(3)}[/]  →  [dim]Latest:[/] [green]{latestVersion.ToString(3)}[/]"
+            ))
+        {
+            Header = new PanelHeader("[bold yellow] Update Available [/]"),
+            Border = BoxBorder.Rounded,
+            BorderStyle = new Style(Color.Yellow),
+            Padding = new Padding(2, 1)
+        };
+        AnsiConsole.Write(panel);
+        AnsiConsole.WriteLine();
+
+        // Ask user if they want to update
+        var shouldUpdate = AnsiConsole.Confirm("Do you want to update now?");
+
+        if (!shouldUpdate)
+        {
+            AnsiConsole.MarkupLine("[dim]Update cancelled.[/]");
+            return 0;
+        }
+
+        return await PerformUpdateAsync(latestRelease);
+    }
+
+    /// <summary>
+    /// Perform the actual update by downloading and replacing the executable
+    /// </summary>
+    private static async Task<int> PerformUpdateAsync(GitHubRelease release)
+    {
+        var artifactName = GetArtifactNameForPlatform();
+        if (artifactName == null)
+        {
+            AnsiConsole.MarkupLine("[red]Unsupported platform for automatic updates.[/]");
+            AnsiConsole.MarkupLine($"[dim]Please download manually from:[/] [link={release.HtmlUrl}]{release.HtmlUrl}[/]");
+            return 1;
+        }
+
+        var downloadUrl = $"https://github.com/{GitHubRepo}/releases/download/{release.TagName}/{artifactName}";
+        var currentExePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+
+        if (string.IsNullOrEmpty(currentExePath))
+        {
+            AnsiConsole.MarkupLine("[red]Could not determine current executable path.[/]");
+            return 1;
+        }
+
+        var tempPath = Path.Combine(Path.GetTempPath(), artifactName);
+        var backupPath = currentExePath + ".backup";
+
+        try
+        {
+            // Download new version
+            await AnsiConsole.Progress()
+                .StartAsync(async ctx =>
+                {
+                    var downloadTask = ctx.AddTask("[green]Downloading update...[/]");
+
+                    using var response = await HttpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                    response.EnsureSuccessStatusCode();
+
+                    var totalBytes = response.Content.Headers.ContentLength ?? -1;
+                    await using var contentStream = await response.Content.ReadAsStreamAsync();
+                    await using var fileStream = File.Create(tempPath);
+
+                    var buffer = new byte[8192];
+                    long totalRead = 0;
+                    int bytesRead;
+
+                    while ((bytesRead = await contentStream.ReadAsync(buffer)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                        totalRead += bytesRead;
+
+                        if (totalBytes > 0)
+                        {
+                            downloadTask.Value = (double)totalRead / totalBytes * 100;
+                        }
+                    }
+
+                    downloadTask.Value = 100;
+                });
+
+            AnsiConsole.MarkupLine("[green]Download complete![/]");
+
+            // Create backup of current executable
+            if (File.Exists(backupPath))
+                File.Delete(backupPath);
+
+            // On Windows, we can't replace a running executable directly
+            // We need to use a different approach
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                await PerformWindowsUpdateAsync(currentExePath, tempPath, backupPath);
+            }
+            else
+            {
+                // On Unix-like systems, we can replace the file
+                File.Move(currentExePath, backupPath);
+                File.Move(tempPath, currentExePath);
+
+                // Make executable
+                var chmod = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "chmod",
+                    Arguments = $"+x \"{currentExePath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                chmod?.WaitForExit();
+
+                // Clean up backup
+                File.Delete(backupPath);
+
+                AnsiConsole.MarkupLine("[green]Update successful![/]");
+                AnsiConsole.MarkupLine("[dim]Please restart poker-cli to use the new version.[/]");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[red]Update failed: {ex.Message}[/]");
+
+            // Restore backup if it exists
+            if (File.Exists(backupPath) && !File.Exists(currentExePath))
+            {
+                File.Move(backupPath, currentExePath);
+                AnsiConsole.MarkupLine("[yellow]Restored previous version.[/]");
+            }
+
+            // Clean up temp file
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Windows-specific update that creates a batch script to replace the exe after exit
+    /// </summary>
+    private static async Task PerformWindowsUpdateAsync(string currentExePath, string tempPath, string backupPath)
+    {
+        var batchPath = Path.Combine(Path.GetTempPath(), "poker-cli-update.bat");
+        var batchContent = $"""
+            @echo off
+            echo Waiting for poker-cli to exit...
+            timeout /t 2 /nobreak >nul
+
+            echo Backing up current version...
+            move /y "{currentExePath}" "{backupPath}"
+
+            echo Installing new version...
+            move /y "{tempPath}" "{currentExePath}"
+
+            echo Cleaning up...
+            del "{backupPath}"
+
+            echo.
+            echo Update complete! You can now run poker-cli again.
+            del "%~f0"
+            """;
+
+        await File.WriteAllTextAsync(batchPath, batchContent);
+
+        AnsiConsole.MarkupLine("[yellow]Starting update process...[/]");
+        AnsiConsole.MarkupLine("[dim]The application will close and update automatically.[/]");
+        AnsiConsole.WriteLine();
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "cmd.exe",
+            Arguments = $"/c \"{batchPath}\"",
+            UseShellExecute = true,
+            CreateNoWindow = false
+        });
+
+        // Exit the application so the batch file can replace the exe
+        Environment.Exit(0);
+    }
+
+    /// <summary>
+    /// Get the correct artifact name for the current platform
+    /// </summary>
+    private static string? GetArtifactNameForPlatform()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return "poker-cli-windows-x64.exe";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return RuntimeInformation.OSArchitecture == Architecture.Arm64
+                ? "poker-cli-linux-arm64"
+                : "poker-cli-linux-x64";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return RuntimeInformation.OSArchitecture == Architecture.Arm64
+                ? "poker-cli-macos-arm64"
+                : "poker-cli-macos-x64";
+        }
+
+        return null;
     }
 
     public static async Task CheckForUpdatesAsync(bool? forceCheck = null)
