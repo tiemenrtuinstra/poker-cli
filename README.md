@@ -75,6 +75,7 @@ The game automatically detects which API keys are available and uses those provi
 ### 🎮 Game Features
 - **Complete Texas Hold'em Implementation**: Full rules with pre-flop, flop, turn, and river rounds
 - **Multi-Player Support**: 1-8 players (human + AI), hot-seat multiplayer
+- **🌐 LAN Multiplayer**: Host or join games over your local network with chat
 - **Intelligent AI System**: 11 unique AI personalities with realistic decision-making
 - **Tournament Mode**: Blind increases, elimination format, comprehensive statistics
 - **Hand History & Replay**: Complete game logging with JSON export/import
@@ -152,6 +153,60 @@ The game automatically detects which API keys are available and uses those provi
 - **Betting Actions**: Enter amounts or choose from suggested bets
 - **Game Control**: Continue hands or quit to main menu at any time
 
+## 🌐 LAN Multiplayer
+
+Play poker with friends over your local network! The LAN multiplayer feature supports:
+- **Host or Join**: Create a lobby or join an existing one via lobby code
+- **Mixed Players**: Play with human players AND AI opponents
+- **Real-time Chat**: Chat with other players during the game
+- **AI Chat**: AI players participate in chat with personality-driven responses
+- **Reconnection**: Automatically reconnect if your connection drops
+- **Bot Takeover**: AI takes over for disconnected players
+
+### Hosting a Game
+
+1. Select **🌐 Multiplayer** from the main menu
+2. Choose **Host Game**
+3. Configure your lobby settings:
+   - Lobby name and max players
+   - Starting chips and blinds
+   - Number of AI players
+4. Share the **lobby code** (e.g., `ABC123`) with friends
+5. Wait for players to join and ready up
+6. Start the game when everyone is ready
+
+### Joining a Game
+
+1. Select **🌐 Multiplayer** from the main menu
+2. Choose **Join Game**
+3. Enter the lobby code provided by the host
+4. Wait in the lobby and mark yourself as ready
+5. Game starts when the host initiates
+
+### Chat Features
+
+- **Player Chat**: Send messages to all players with Enter
+- **AI Commentary**: AI players comment on game events
+- **AI Responses**: AI players may respond to your messages
+- **System Messages**: Join/leave notifications
+- **Rate Limiting**: 5 messages per 10 seconds to prevent spam
+
+### Technical Details
+
+| Setting | Value |
+|---------|-------|
+| Default Port | 7777 |
+| Protocol | WebSocket |
+| Reconnect Window | 5 minutes |
+| Bot Takeover | After 30 seconds |
+| Max Message Length | 500 characters |
+
+### Network Troubleshooting
+
+- **Can't connect?** Ensure firewall allows port 7777
+- **Lost connection?** The game will auto-reconnect within 5 minutes
+- **Player disconnected?** AI takes over after 30 seconds
+
 ## 🏗️ Project Architecture
 
 ### Core Structure
@@ -159,7 +214,7 @@ The game automatically detects which API keys are available and uses those provi
 TexasHoldem/
 ├── Domain/          # Core game models and logic
 │   ├── Card.cs      # Card representation with parsing
-│   ├── Deck.cs      # Deck management and shuffling  
+│   ├── Deck.cs      # Deck management and shuffling
 │   ├── Enums/       # Game enumerations
 │   ├── GameState.cs # Game state tracking
 │   └── HandEvaluator.cs # Poker hand ranking engine
@@ -174,7 +229,12 @@ TexasHoldem/
 │   ├── HumanPlayer.cs  # Human player logic
 │   ├── AiPlayer.cs     # AI player base
 │   └── AiPersonality.cs # AI strategy engine
-├── CLI/             # User interface system  
+├── Network/         # LAN Multiplayer system
+│   ├── Server/      # WebSocket server & lobby management
+│   ├── Client/      # WebSocket client & reconnection
+│   ├── Messages/    # Network protocol messages
+│   └── Chat/        # Chat system with AI participation
+├── CLI/             # User interface system
 │   ├── Menu.cs         # Main menu system
 │   ├── GameUI.cs       # Game display logic
 │   ├── InputHelper.cs  # Input validation
@@ -244,6 +304,60 @@ logs/
 ├── hands_20241201_143022.json    # Detailed hand history
 └── actions_20241201_143022.json  # Action-by-action log
 ```
+
+## 🛠️ Building & Releasing
+
+### Local Development
+```bash
+# Build and run
+dotnet build TexasHoldem.sln
+dotnet run --project TexasHoldem
+```
+
+### Creating a Release Build
+Build a self-contained executable with all dependencies (including Spectre.Console):
+
+**Windows (PowerShell):**
+```powershell
+# Build for current platform (Windows x64)
+.\build-release.ps1
+
+# Build for specific platform
+.\build-release.ps1 -Runtime linux-x64
+.\build-release.ps1 -Runtime osx-arm64
+
+# Build for all platforms
+.\build-all-platforms.ps1
+```
+
+**Linux / macOS:**
+```bash
+# Make script executable
+chmod +x build-release.sh
+
+# Build for current platform
+./build-release.sh linux-x64
+
+# Build for other platforms
+./build-release.sh osx-arm64
+./build-release.sh win-x64
+```
+
+### Creating a GitHub Release
+1. Go to GitHub → **Actions** tab
+2. Select **"Build and Release"** workflow
+3. Click **"Run workflow"**
+4. Choose version bump: `patch` (1.2.7→1.2.8), `minor` (1.2.7→1.3.0), or `major` (1.2.7→2.0.0)
+5. The workflow creates executables for all platforms and publishes them
+
+### Supported Platforms
+| Platform | Runtime ID |
+|----------|------------|
+| Windows x64 | `win-x64` |
+| Linux x64 | `linux-x64` |
+| Linux ARM64 | `linux-arm64` |
+| macOS Intel | `osx-x64` |
+| macOS Apple Silicon | `osx-arm64` |
 
 ## 🧪 Testing
 
@@ -320,14 +434,14 @@ dotnet test --verbosity normal
 ## 🔮 Future Enhancements
 
 ### Planned Features
-- **Online Multiplayer**: Network-based multi-player games
 - **Tournament Brackets**: Multi-table tournament support
 - **Advanced Statistics**: Heat maps, position analysis, tendency tracking
 - **AI Training**: Machine learning for adaptive AI opponents
 - **Custom UI Themes**: Personalized visual experiences
+- **Spectator Mode**: Watch games without participating
 
 ### Extensibility Points
-- **IPlayer Interface**: Add new player types (network, scripted, etc.)
+- **IPlayer Interface**: Add new player types (scripted, tournament bots, etc.)
 - **Personality System**: Create custom AI behaviors
 - **Game Variants**: Omaha, Seven-Card Stud support
 - **Logging Providers**: Database, cloud storage integration

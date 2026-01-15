@@ -9,11 +9,15 @@ public class Menu
 {
     private readonly InputHelper _inputHelper;
     private readonly ConfigurationManager _configManager;
+    private readonly NetworkMenu _networkMenu;
+
+    public NetworkGameResult? LastNetworkGameResult { get; private set; }
 
     public Menu()
     {
         _inputHelper = new InputHelper();
         _configManager = new ConfigurationManager();
+        _networkMenu = new NetworkMenu();
     }
 
     public GameConfig? SetupGame()
@@ -29,6 +33,7 @@ public class Menu
                 {
                     "🎲  Start New Game",
                     "⚡  Quick Start (Default Settings)",
+                    "🌐  Multiplayer (LAN)",
                     "📁  Load Preset Configuration",
                     "⚙️   Manage Settings",
                     "📖  View Rules",
@@ -39,6 +44,7 @@ public class Menu
         {
             "🎲  Start New Game" => ConfigureNewGame(),
             "⚡  Quick Start (Default Settings)" => CreateQuickStartConfig(),
+            "🌐  Multiplayer (LAN)" => ShowMultiplayerAndReturn(),
             "📁  Load Preset Configuration" => LoadPresetConfiguration(),
             "⚙️   Manage Settings" => ManageSettingsAndReturn(),
             "📖  View Rules" => ShowRulesAndReturn(),
@@ -56,6 +62,30 @@ public class Menu
     private GameConfig? ShowRulesAndReturn()
     {
         ShowRules();
+        return SetupGame();
+    }
+
+    private GameConfig? ShowMultiplayerAndReturn()
+    {
+        var result = _networkMenu.ShowMultiplayerMenuAsync().GetAwaiter().GetResult();
+        if (result != null)
+        {
+            LastNetworkGameResult = result;
+            // Return a config that indicates this is a network game
+            return new GameConfig
+            {
+                IsNetworkGame = true,
+                HumanPlayerCount = result.Lobby?.Players.Count(p => !p.IsAi) ?? 1,
+                AiPlayerCount = result.Lobby?.Players.Count(p => p.IsAi) ?? 0,
+                StartingChips = result.Lobby?.Settings.StartingChips ?? 10000,
+                SmallBlind = result.Lobby?.Settings.SmallBlind ?? 50,
+                BigBlind = result.Lobby?.Settings.BigBlind ?? 100,
+                Ante = result.Lobby?.Settings.Ante ?? 0,
+                UseColors = true,
+                EnableAsciiArt = true,
+                EnableLogging = true
+            };
+        }
         return SetupGame();
     }
 

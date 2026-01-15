@@ -35,8 +35,8 @@ detect_platform() {
             ;;
         Darwin*)
             case "$ARCH" in
-                x86_64) PLATFORM="macos-x64" ;;
-                arm64) PLATFORM="macos-arm64" ;;
+                x86_64) PLATFORM="osx-x64" ;;
+                arm64) PLATFORM="osx-arm64" ;;
                 *) error "Unsupported architecture: $ARCH" ;;
             esac
             ;;

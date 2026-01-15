@@ -19,6 +19,12 @@ public class GameConfig
     public bool EnableAsciiArt { get; set; } = true;
     public bool EnableLogging { get; set; } = true;
 
+    // Network settings
+    public bool IsNetworkGame { get; set; } = false;
+    public string? ServerHost { get; set; }
+    public int ServerPort { get; set; } = 7777;
+    public string? LobbyCode { get; set; }
+
     // AI Provider settings
     public string? ClaudeApiKey { get; set; }
     public string? GeminiApiKey { get; set; }
@@ -63,7 +69,11 @@ public class GameConfig
             EnabledProviders = EnabledProviders.ToList(),
             ClaudeModel = ClaudeModel,
             GeminiModel = GeminiModel,
-            OpenAiModel = OpenAiModel
+            OpenAiModel = OpenAiModel,
+            IsNetworkGame = IsNetworkGame,
+            ServerHost = ServerHost,
+            ServerPort = ServerPort,
+            LobbyCode = LobbyCode
         };
     }
 
