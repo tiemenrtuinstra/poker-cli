@@ -269,6 +269,7 @@ public class Menu
 
         config.UseColors = AnsiConsole.Confirm("[yellow]Use colors?[/]", true);
         config.EnableAsciiArt = AnsiConsole.Confirm("[yellow]Enable ASCII art?[/]", true);
+        config.UseUnicodeSymbols = AnsiConsole.Confirm("[yellow]Use Unicode symbols (EUR, emoji)?[/]", true);
         config.EnableLogging = AnsiConsole.Confirm("[yellow]Enable logging?[/]", true);
 
         // AI settings are loaded from .env and config.json
@@ -433,6 +434,7 @@ public class Menu
         // Display settings
         table.AddRow("[yellow]Colors[/]", config.UseColors ? "[green]✓[/]" : "[red]✗[/]");
         table.AddRow("[yellow]ASCII Art[/]", config.EnableAsciiArt ? "[green]✓[/]" : "[red]✗[/]");
+        table.AddRow("[yellow]Unicode Symbols[/]", config.UseUnicodeSymbols ? "[green]✓[/]" : "[red]✗[/]");
         table.AddRow("[yellow]Logging[/]", config.EnableLogging ? "[green]✓[/]" : "[red]✗[/]");
 
         // AI provider info
@@ -763,6 +765,7 @@ public class Menu
             BlindIncreaseMultiplier = template.BlindIncreaseMultiplier,
             UseColors = template.UseColors,
             EnableAsciiArt = template.EnableAsciiArt,
+            UseUnicodeSymbols = template.UseUnicodeSymbols,
             EnableLogging = template.EnableLogging,
             GeminiApiKey = template.GeminiApiKey
         };
@@ -849,6 +852,7 @@ public class Menu
 
         config.UseColors = AnsiConsole.Confirm($"[yellow]Use colored output?[/] [dim](current: {config.UseColors})[/]", config.UseColors);
         config.EnableAsciiArt = AnsiConsole.Confirm($"[yellow]Enable ASCII art?[/] [dim](current: {config.EnableAsciiArt})[/]", config.EnableAsciiArt);
+        config.UseUnicodeSymbols = AnsiConsole.Confirm($"[yellow]Use Unicode symbols (EUR, emoji)?[/] [dim](current: {config.UseUnicodeSymbols})[/]", config.UseUnicodeSymbols);
         config.EnableLogging = AnsiConsole.Confirm($"[yellow]Enable game logging?[/] [dim](current: {config.EnableLogging})[/]", config.EnableLogging);
 
         return config;

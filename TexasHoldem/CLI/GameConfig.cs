@@ -17,6 +17,7 @@ public class GameConfig
     public List<string>? HumanPlayerNames { get; set; }
     public bool UseColors { get; set; } = true;
     public bool EnableAsciiArt { get; set; } = true;
+    public bool UseUnicodeSymbols { get; set; } = true;
     public bool EnableLogging { get; set; } = true;
 
     // Network settings
@@ -62,6 +63,7 @@ public class GameConfig
             HumanPlayerNames = HumanPlayerNames?.ToList(),
             UseColors = UseColors,
             EnableAsciiArt = EnableAsciiArt,
+            UseUnicodeSymbols = UseUnicodeSymbols,
             EnableLogging = EnableLogging,
             ClaudeApiKey = ClaudeApiKey,
             GeminiApiKey = GeminiApiKey,

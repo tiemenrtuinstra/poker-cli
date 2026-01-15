@@ -8,7 +8,8 @@
     "defaultAnte": 0,
     "enableLogging": true,
     "useColors": true,
-    "enableAsciiArt": true
+    "enableAsciiArt": true,
+    "useUnicodeSymbols": true
   },
   "tournament": {
     "enableBlindIncrease": false,

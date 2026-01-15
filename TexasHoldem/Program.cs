@@ -51,6 +51,9 @@ internal class Program
 
             if (gameConfig != null)
             {
+                // Initialize symbols based on config setting
+                CLI.Symbols.Initialize(gameConfig.UseUnicodeSymbols);
+
                 var game = new TexasHoldemGame(gameConfig);
                 await game.StartGame();
             }

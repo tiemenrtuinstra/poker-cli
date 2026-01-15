@@ -36,6 +36,7 @@ public class ConfigurationManager
             HumanPlayerNames = _config.PlayerNames.DefaultHumanNames?.ToList(),
             UseColors = _config.Game.UseColors,
             EnableAsciiArt = _config.Game.EnableAsciiArt,
+            UseUnicodeSymbols = _config.Game.UseUnicodeSymbols,
             EnableLogging = _config.Game.EnableLogging,
             // AI Provider settings - environment variables take priority over config.json
             ClaudeApiKey = EnvLoader.GetEnv("CLAUDE_API_KEY") ?? _config.AI.ClaudeApiKey,
@@ -139,8 +140,9 @@ public class ConfigurationManager
         _config.Game.DefaultAnte = gameConfig.Ante;
         _config.Game.UseColors = gameConfig.UseColors;
         _config.Game.EnableAsciiArt = gameConfig.EnableAsciiArt;
+        _config.Game.UseUnicodeSymbols = gameConfig.UseUnicodeSymbols;
         _config.Game.EnableLogging = gameConfig.EnableLogging;
-        
+
         SaveConfiguration();
     }
 
@@ -164,6 +166,7 @@ public class ConfigurationManager
         Console.WriteLine($"   Ante: €{_config.Game.DefaultAnte}");
         Console.WriteLine($"   Colors: {_config.Game.UseColors}");
         Console.WriteLine($"   ASCII Art: {_config.Game.EnableAsciiArt}");
+        Console.WriteLine($"   Unicode Symbols: {_config.Game.UseUnicodeSymbols}");
         Console.WriteLine($"   Logging: {_config.Game.EnableLogging}");
         
         Console.WriteLine($"\n🏆 Tournament Settings:");
@@ -219,6 +222,7 @@ public class GameDefaults
     public bool EnableLogging { get; set; } = true;
     public bool UseColors { get; set; } = true;
     public bool EnableAsciiArt { get; set; } = true;
+    public bool UseUnicodeSymbols { get; set; } = true;
 }
 
 public class TournamentSettings
