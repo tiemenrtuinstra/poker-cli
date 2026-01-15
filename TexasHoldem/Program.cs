@@ -8,9 +8,9 @@ internal class Program
     private static async Task Main(string[] args)
     {
         Console.Clear();
-        Console.WriteLine("🃏 Welcome to Texas Hold'em Poker CLI! 🃏");
-        Console.WriteLine("========================================");
-        Console.WriteLine();
+
+        // Check for updates in the background, but don't block startup for too long
+        await VersionChecker.CheckForUpdatesAsync();
 
         try
         {

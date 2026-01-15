@@ -205,6 +205,7 @@ public class AppConfig
     public DisplaySettings Display { get; set; } = new();
     public LoggingSettings Logging { get; set; } = new();
     public PlayerNameSettings PlayerNames { get; set; } = new();
+    public UpdateSettings Updates { get; set; } = new();
 }
 
 public class GameDefaults
@@ -269,4 +270,9 @@ public class PlayerNameSettings
     public List<string> DefaultHumanNames { get; set; } = new() { "Player 1", "Player 2", "Player 3" };
     public bool UseFunnyAiNames { get; set; } = true;
     public List<string> CustomAiNames { get; set; } = new();
+}
+
+public class UpdateSettings
+{
+    public bool CheckForUpdatesOnStartup { get; set; } = true;
 }
