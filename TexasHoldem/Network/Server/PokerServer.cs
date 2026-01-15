@@ -1,18 +1,23 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using TexasHoldem.Network.Messages;
 
 namespace TexasHoldem.Network.Server;
 
 public class PokerServer : IDisposable
 {
-    private readonly HttpListener _httpListener;
+    private readonly TcpListener _tcpListener;
     private readonly ConcurrentDictionary<string, ClientConnection> _clients = new();
     private readonly CancellationTokenSource _serverCts = new();
     private readonly int _port;
     private bool _isRunning;
     private bool _disposed;
+    private string? _startupError;
 
     public event Action<string, INetworkMessage>? OnMessageReceived;
     public event Action<ClientConnection>? OnClientConnected;
@@ -20,12 +25,13 @@ public class PokerServer : IDisposable
 
     public IReadOnlyDictionary<string, ClientConnection> Clients => _clients;
     public bool IsRunning => _isRunning;
+    public string? StartupError => _startupError;
 
     public PokerServer(int port = 7777)
     {
         _port = port;
-        _httpListener = new HttpListener();
-        _httpListener.Prefixes.Add($"http://+:{port}/");
+        // Bind to all interfaces - no admin privileges required with TcpListener
+        _tcpListener = new TcpListener(IPAddress.Any, port);
     }
 
     public async Task StartAsync()
@@ -34,10 +40,12 @@ public class PokerServer : IDisposable
 
         try
         {
-            _httpListener.Start();
+            _tcpListener.Start();
             _isRunning = true;
+            _startupError = null;
 
             Console.WriteLine($"Poker server started on port {_port}");
+            Console.WriteLine($"Other players can connect using your IP address and port {_port}");
 
             // Start heartbeat monitor
             _ = MonitorHeartbeatsAsync(_serverCts.Token);
@@ -47,58 +55,66 @@ public class PokerServer : IDisposable
             {
                 try
                 {
-                    var context = await _httpListener.GetContextAsync();
-
-                    if (context.Request.IsWebSocketRequest)
-                    {
-                        _ = HandleWebSocketAsync(context);
-                    }
-                    else
-                    {
-                        context.Response.StatusCode = 400;
-                        context.Response.Close();
-                    }
+                    var tcpClient = await _tcpListener.AcceptTcpClientAsync(_serverCts.Token);
+                    _ = HandleTcpClientAsync(tcpClient);
                 }
-                catch (HttpListenerException) when (!_isRunning)
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (SocketException) when (!_isRunning)
                 {
                     break;
                 }
             }
         }
-        catch (HttpListenerException ex)
+        catch (SocketException ex)
         {
+            _startupError = ex.Message;
             Console.WriteLine($"Server error: {ex.Message}");
+
+            if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+            {
+                Console.WriteLine($"Port {_port} is already in use. Try a different port.");
+            }
+            else if (ex.SocketErrorCode == SocketError.AccessDenied)
+            {
+                Console.WriteLine("Access denied. Try running as Administrator or use a different port.");
+            }
+
             throw;
         }
     }
 
-    private async Task HandleWebSocketAsync(HttpListenerContext context)
+    private async Task HandleTcpClientAsync(TcpClient tcpClient)
     {
-        WebSocketContext? wsContext = null;
-
-        try
-        {
-            wsContext = await context.AcceptWebSocketAsync(null);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"WebSocket accept error: {ex.Message}");
-            context.Response.StatusCode = 500;
-            context.Response.Close();
-            return;
-        }
-
-        var socket = wsContext.WebSocket;
+        NetworkStream? stream = null;
         ClientConnection? client = null;
 
         try
         {
+            stream = tcpClient.GetStream();
+
+            // Perform WebSocket handshake
+            if (!await PerformWebSocketHandshakeAsync(stream, _serverCts.Token))
+            {
+                tcpClient.Close();
+                return;
+            }
+
+            // Now we have a WebSocket connection - wrap it
+            var webSocket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
+            {
+                IsServer = true,
+                KeepAliveInterval = TimeSpan.FromSeconds(30)
+            });
+
             // Wait for connect message
-            var connectMsg = await ReceiveMessageAsync(socket, _serverCts.Token);
+            var connectMsg = await ReceiveMessageAsync(webSocket, _serverCts.Token);
 
             if (connectMsg is not ConnectMessage connect)
             {
-                await socket.CloseAsync(
+                await webSocket.CloseAsync(
                     WebSocketCloseStatus.ProtocolError,
                     "Expected connect message",
                     CancellationToken.None);
@@ -107,7 +123,7 @@ public class PokerServer : IDisposable
 
             // Create client connection
             var clientId = Guid.NewGuid().ToString("N")[..8];
-            client = new ClientConnection(clientId, connect.PlayerName, socket);
+            client = new ClientConnection(clientId, connect.PlayerName, webSocket);
             _clients[clientId] = client;
 
             // Send connect response
@@ -121,13 +137,13 @@ public class PokerServer : IDisposable
             OnClientConnected?.Invoke(client);
 
             // Message loop
-            while (socket.State == WebSocketState.Open && !_serverCts.Token.IsCancellationRequested)
+            while (webSocket.State == WebSocketState.Open && !_serverCts.Token.IsCancellationRequested)
             {
                 var message = await client.ReceiveAsync(_serverCts.Token);
 
                 if (message == null)
                 {
-                    if (socket.State != WebSocketState.Open)
+                    if (webSocket.State != WebSocketState.Open)
                         break;
                     continue;
                 }
@@ -151,6 +167,10 @@ public class PokerServer : IDisposable
         {
             // Server stopping
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Client handler error: {ex.Message}");
+        }
         finally
         {
             if (client != null)
@@ -159,17 +179,68 @@ public class PokerServer : IDisposable
                 OnClientDisconnected?.Invoke(client);
                 client.Dispose();
             }
-            else
-            {
-                socket.Dispose();
-            }
+
+            tcpClient.Close();
         }
+    }
+
+    private async Task<bool> PerformWebSocketHandshakeAsync(NetworkStream stream, CancellationToken ct)
+    {
+        // Read HTTP request
+        var buffer = new byte[4096];
+        var requestBuilder = new StringBuilder();
+
+        var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct);
+        if (bytesRead == 0) return false;
+
+        requestBuilder.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
+        var request = requestBuilder.ToString();
+
+        // Check for WebSocket upgrade request
+        if (!request.Contains("Upgrade: websocket", StringComparison.OrdinalIgnoreCase))
+        {
+            // Send 400 Bad Request
+            var badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(badRequest), ct);
+            return false;
+        }
+
+        // Extract Sec-WebSocket-Key
+        var keyMatch = Regex.Match(request, @"Sec-WebSocket-Key:\s*(.+)", RegexOptions.IgnoreCase);
+        if (!keyMatch.Success)
+        {
+            var badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(badRequest), ct);
+            return false;
+        }
+
+        var key = keyMatch.Groups[1].Value.Trim();
+
+        // Calculate accept key
+        var acceptKey = ComputeWebSocketAcceptKey(key);
+
+        // Send handshake response
+        var response = $"HTTP/1.1 101 Switching Protocols\r\n" +
+                      $"Upgrade: websocket\r\n" +
+                      $"Connection: Upgrade\r\n" +
+                      $"Sec-WebSocket-Accept: {acceptKey}\r\n\r\n";
+
+        await stream.WriteAsync(Encoding.UTF8.GetBytes(response), ct);
+        return true;
+    }
+
+    private static string ComputeWebSocketAcceptKey(string key)
+    {
+        const string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        var combined = key + guid;
+        var hash = SHA1.HashData(Encoding.UTF8.GetBytes(combined));
+        return Convert.ToBase64String(hash);
     }
 
     private async Task<INetworkMessage?> ReceiveMessageAsync(WebSocket socket, CancellationToken ct)
     {
         var buffer = new byte[8192];
-        var messageBuilder = new System.Text.StringBuilder();
+        var messageBuilder = new StringBuilder();
 
         WebSocketReceiveResult result;
         do
@@ -179,7 +250,7 @@ public class PokerServer : IDisposable
             if (result.MessageType == WebSocketMessageType.Close)
                 return null;
 
-            messageBuilder.Append(System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count));
+            messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
         }
         while (!result.EndOfMessage);
 
@@ -267,7 +338,7 @@ public class PokerServer : IDisposable
         }
         _clients.Clear();
 
-        _httpListener.Stop();
+        _tcpListener.Stop();
         Console.WriteLine("Poker server stopped");
     }
 
@@ -284,6 +355,6 @@ public class PokerServer : IDisposable
             client.Dispose();
         }
 
-        _httpListener.Close();
+        _tcpListener.Stop();
     }
 }

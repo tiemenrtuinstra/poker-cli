@@ -122,8 +122,25 @@ public class NetworkMenu
             _reconnectionManager = new ReconnectionManager(_server);
             _lobbyManager = new LobbyManager(_server, _reconnectionManager);
 
-            _ = _server.StartAsync();
-            await Task.Delay(500); // Wait for server to start
+            // Start server in background and wait for it to be ready
+            var serverTask = _server.StartAsync();
+
+            // Wait for server to start (up to 2 seconds)
+            var startTime = DateTime.UtcNow;
+            while (!_server.IsRunning && _server.StartupError == null && (DateTime.UtcNow - startTime).TotalSeconds < 2)
+            {
+                await Task.Delay(100);
+            }
+
+            // Check if server started successfully
+            if (!_server.IsRunning)
+            {
+                var error = _server.StartupError ?? "Unknown error";
+                AnsiConsole.MarkupLine($"[red]Failed to start server: {error}[/]");
+                _inputHelper.PressAnyKeyToContinue();
+                await CleanupAsync();
+                return null;
+            }
 
             // Connect as host
             _client = new PokerClient(playerName);
