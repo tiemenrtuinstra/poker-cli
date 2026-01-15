@@ -637,4 +637,5 @@ public class NetworkGameResult
     public PokerClient? Client { get; init; }
     public LobbyManager? LobbyManager { get; init; }
     public LobbyInfo? Lobby { get; init; }
+    public bool GamePlayed { get; set; } = false;
 }

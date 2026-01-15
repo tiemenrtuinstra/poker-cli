@@ -228,7 +228,6 @@ public class TexasHoldemGame
         await ShowGameStatistics();
 
         _gameUI.DisplayThanksForPlaying();
-        Console.ReadKey();
     }
 
     private async Task ShowGameStatistics()

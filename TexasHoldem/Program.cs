@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Text;
+using Spectre.Console;
 using TexasHoldem.CLI;
 using TexasHoldem.Game;
 
@@ -47,15 +48,83 @@ internal class Program
         try
         {
             var menu = new Menu();
-            var gameConfig = menu.SetupGame();
+            bool keepRunning = true;
 
-            if (gameConfig != null)
+            while (keepRunning)
             {
+                var gameConfig = menu.SetupGame();
+
+                if (gameConfig == null)
+                {
+                    // User chose to exit
+                    keepRunning = false;
+                    continue;
+                }
+
                 // Initialize symbols based on config setting
                 CLI.Symbols.Initialize(gameConfig.UseUnicodeSymbols);
 
-                var game = new TexasHoldemGame(gameConfig);
-                await game.StartGame();
+                if (gameConfig.IsNetworkGame)
+                {
+                    // Network game - handled by NetworkMenu, loop back to multiplayer
+                    var networkResult = menu.LastNetworkGameResult;
+                    if (networkResult?.GamePlayed == true)
+                    {
+                        // Game was played, show return options
+                        Console.Clear();
+                        var returnChoice = AnsiConsole.Prompt(
+                            new SelectionPrompt<string>()
+                                .Title("[bold green]Game finished! What would you like to do?[/]")
+                                .HighlightStyle(new Style(Color.Black, Color.Green))
+                                .AddChoices(new[]
+                                {
+                                    "🌐  Return to Multiplayer Menu",
+                                    "🏠  Return to Main Menu",
+                                    "🚪  Exit"
+                                }));
+
+                        if (returnChoice.Contains("Exit"))
+                        {
+                            keepRunning = false;
+                        }
+                        // Otherwise loop continues and shows appropriate menu
+                    }
+                }
+                else
+                {
+                    // Local game - loop to allow "Play Again"
+                    bool playingLocal = true;
+                    while (playingLocal)
+                    {
+                        var game = new TexasHoldemGame(gameConfig);
+                        await game.StartGame();
+
+                        // Game finished - show return options
+                        Console.Clear();
+                        var returnChoice = AnsiConsole.Prompt(
+                            new SelectionPrompt<string>()
+                                .Title("[bold green]Game finished! What would you like to do?[/]")
+                                .HighlightStyle(new Style(Color.Black, Color.Green))
+                                .AddChoices(new[]
+                                {
+                                    "🔄  Play Again (Same Settings)",
+                                    "🏠  Return to Main Menu",
+                                    "🚪  Exit"
+                                }));
+
+                        if (returnChoice.Contains("Exit"))
+                        {
+                            keepRunning = false;
+                            playingLocal = false;
+                        }
+                        else if (returnChoice.Contains("Main Menu"))
+                        {
+                            playingLocal = false;
+                            // keepRunning stays true, loop continues to main menu
+                        }
+                        // Play Again - playingLocal stays true, inner loop continues
+                    }
+                }
             }
 
             return 0;
