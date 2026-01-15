@@ -5,7 +5,7 @@ namespace TexasHoldem.CLI;
 
 public static class HeaderDisplay
 {
-    public static void ShowHeader(string? subtitle = null, bool showVersion = true)
+    public static void ShowHeader(string? subtitle = null, bool showVersion = true, bool showFeatureTable = true)
     {
         AnsiConsole.Clear();
 
@@ -47,6 +47,25 @@ public static class HeaderDisplay
         }
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
+
+        // Feature table
+        if (showFeatureTable)
+        {
+            var infoTable = new Table()
+                .Border(TableBorder.Rounded)
+                .BorderColor(Color.Grey)
+                .AddColumn(new TableColumn("[bold cyan]Feature[/]").Centered())
+                .AddColumn(new TableColumn("[bold cyan]Description[/]").Centered())
+                .Centered();
+
+            infoTable.AddRow("[green]🎮 Single & Multiplayer[/]", "Play solo or with friends (hot-seat)");
+            infoTable.AddRow("[yellow]🤖 Smart AI Opponents[/]", "Multiple AI personalities & LLM support");
+            infoTable.AddRow("[magenta]🏆 Tournament Mode[/]", "Increasing blinds & elimination");
+            infoTable.AddRow("[cyan]📊 Statistics & Replay[/]", "Track your progress & review hands");
+
+            AnsiConsole.Write(infoTable);
+            AnsiConsole.WriteLine();
+        }
 
         // Version info
         if (showVersion)

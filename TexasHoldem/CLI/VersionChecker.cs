@@ -30,8 +30,8 @@ public class VersionChecker
     {
         var currentVersion = GetCurrentVersion();
 
-        // Show the Texas Hold'em header
-        HeaderDisplay.ShowHeader("[bold yellow]♠ ♥ ♦ ♣[/]  [italic]Version Manager[/]  [bold yellow]♣ ♦ ♥ ♠[/]");
+        // Show the Texas Hold'em header (without feature table for version manager)
+        HeaderDisplay.ShowHeader("[bold yellow]♠ ♥ ♦ ♣[/]  [italic]Version Manager[/]  [bold yellow]♣ ♦ ♥ ♠[/]", showVersion: true, showFeatureTable: false);
 
         List<GitHubRelease>? releases = null;
 
