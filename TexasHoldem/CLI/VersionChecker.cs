@@ -346,22 +346,80 @@ public class VersionChecker
     private static async Task PerformWindowsUpdateAsync(string currentExePath, string tempPath, string backupPath)
     {
         var batchPath = Path.Combine(Path.GetTempPath(), "poker-cli-update.bat");
+        var currentPid = Environment.ProcessId;
+        // ANSI escape codes for colors (Windows 10+)
         var batchContent = $"""
             @echo off
-            echo Waiting for poker-cli to exit...
-            timeout /t 2 /nobreak >nul
+            chcp 65001 >nul 2>&1
+            title Poker CLI Updater
 
-            echo Backing up current version...
-            move /y "{currentExePath}" "{backupPath}"
+            :: Enable ANSI escape codes
+            for /F "tokens=3" %%A in ('reg query "HKCU\Console" /v VirtualTerminalLevel 2^>nul') do set "VT=%%A"
+            if not defined VT reg add "HKCU\Console" /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >nul 2>&1
 
-            echo Installing new version...
-            move /y "{tempPath}" "{currentExePath}"
-
-            echo Cleaning up...
-            del "{backupPath}"
+            :: ANSI color codes - create ESC character
+            for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+            set "GREEN=%ESC%[92m"
+            set "YELLOW=%ESC%[93m"
+            set "RED=%ESC%[91m"
+            set "CYAN=%ESC%[96m"
+            set "DIM=%ESC%[90m"
+            set "RESET=%ESC%[0m"
+            set "BOLD=%ESC%[1m"
 
             echo.
-            echo Update complete! You can now run poker-cli again.
+            echo %CYAN%╔════════════════════════════════════════════╗%RESET%
+            echo %CYAN%║%RESET%  %BOLD%%YELLOW%♠ ♥%RESET% %BOLD%Poker CLI - Auto Updater%RESET% %BOLD%%YELLOW%♦ ♣%RESET%  %CYAN%║%RESET%
+            echo %CYAN%╚════════════════════════════════════════════╝%RESET%
+            echo.
+            echo %DIM%Waiting for poker-cli to exit...%RESET%
+
+            :waitloop
+            tasklist /FI "PID eq {currentPid}" 2>NUL | find /I "{currentPid}" >NUL
+            if %ERRORLEVEL%==0 (
+                ping -n 2 127.0.0.1 >nul
+                goto waitloop
+            )
+
+            echo %GREEN%✓%RESET% Application closed. Starting update...
+            echo.
+
+            echo %YELLOW%[1/3]%RESET% Backing up current version...
+            if exist "{backupPath}" del /f /q "{backupPath}"
+            move /y "{currentExePath}" "{backupPath}" >nul 2>&1
+            if %ERRORLEVEL% NEQ 0 (
+                echo %RED%✗ ERROR: Failed to backup current version.%RESET%
+                echo %DIM%Press any key to exit...%RESET%
+                pause >nul
+                exit /b 1
+            )
+            echo       %GREEN%✓ Done%RESET%
+
+            echo %YELLOW%[2/3]%RESET% Installing new version...
+            move /y "{tempPath}" "{currentExePath}" >nul 2>&1
+            if %ERRORLEVEL% NEQ 0 (
+                echo %RED%✗ ERROR: Failed to install new version.%RESET%
+                echo %YELLOW%Restoring backup...%RESET%
+                move /y "{backupPath}" "{currentExePath}" >nul 2>&1
+                echo %DIM%Press any key to exit...%RESET%
+                pause >nul
+                exit /b 1
+            )
+            echo       %GREEN%✓ Done%RESET%
+
+            echo %YELLOW%[3/3]%RESET% Cleaning up...
+            if exist "{backupPath}" del /f /q "{backupPath}"
+            if exist "{tempPath}" del /f /q "{tempPath}"
+            echo       %GREEN%✓ Done%RESET%
+
+            echo.
+            echo %GREEN%╔════════════════════════════════════════════╗%RESET%
+            echo %GREEN%║%RESET%  %BOLD%%GREEN%✓ Update complete!%RESET%                       %GREEN%║%RESET%
+            echo %GREEN%║%RESET%  %DIM%You can now run poker-cli again.%RESET%        %GREEN%║%RESET%
+            echo %GREEN%╚════════════════════════════════════════════╝%RESET%
+            echo.
+            echo %DIM%This window will close in 3 seconds...%RESET%
+            ping -n 4 127.0.0.1 >nul
             del "%~f0"
             """;
 
@@ -475,13 +533,31 @@ public class VersionChecker
     {
         AnsiConsole.WriteLine();
 
+        // OS-specific install instructions
+        string installInstructions;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            installInstructions =
+                $"[dim]Update using the version manager:[/]\n" +
+                $"[blue]poker-cli --update[/]\n\n" +
+                $"[dim]Or run the install script in PowerShell:[/]\n" +
+                $"[blue]irm https://raw.githubusercontent.com/{GitHubRepo}/main/install.ps1 | iex[/]";
+        }
+        else
+        {
+            installInstructions =
+                $"[dim]Update using the version manager:[/]\n" +
+                $"[blue]poker-cli --update[/]\n\n" +
+                $"[dim]Or run the install script:[/]\n" +
+                $"[blue]curl -fsSL https://raw.githubusercontent.com/{GitHubRepo}/main/install.sh | bash[/]";
+        }
+
         var panel = new Panel(
             new Markup(
                 $"[yellow]A new version is available![/]\n\n" +
                 $"Current version: [red]{current.ToString(3)}[/]\n" +
                 $"Latest version:  [green]{latest.ToString(3)}[/]\n\n" +
-                $"[dim]Run the install script to update:[/]\n" +
-                $"[blue]curl -fsSL https://raw.githubusercontent.com/{GitHubRepo}/main/install.sh | bash[/]\n\n" +
+                installInstructions + "\n\n" +
                 $"[dim]Or download from:[/]\n" +
                 $"[link={release.HtmlUrl}]{release.HtmlUrl}[/]"
             ))
