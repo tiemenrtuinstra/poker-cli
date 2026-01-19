@@ -10,14 +10,16 @@ public class Menu
     private readonly InputHelper _inputHelper;
     private readonly ConfigurationManager _configManager;
     private readonly NetworkMenu _networkMenu;
+    private readonly HandHistoryMenu? _handHistoryMenu;
 
     public NetworkGameResult? LastNetworkGameResult { get; private set; }
 
-    public Menu(InputHelper inputHelper, ConfigurationManager configManager, NetworkMenu networkMenu)
+    public Menu(InputHelper inputHelper, ConfigurationManager configManager, NetworkMenu networkMenu, HandHistoryMenu? handHistoryMenu = null)
     {
         _inputHelper = inputHelper;
         _configManager = configManager;
         _networkMenu = networkMenu;
+        _handHistoryMenu = handHistoryMenu;
     }
 
     public GameConfig? SetupGame()
@@ -27,7 +29,7 @@ public class Menu
         var mainChoice = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("[bold green]What would you like to do?[/]")
-                .PageSize(8)
+                .PageSize(10)
                 .HighlightStyle(new Style(Color.Black, Color.Green))
                 .AddChoices(new[]
                 {
@@ -35,6 +37,7 @@ public class Menu
                     "⚡  Quick Start (Default Settings)",
                     "🌐  Multiplayer (LAN)",
                     "📁  Load Preset Configuration",
+                    "📊  View Hand History",
                     "⚙️   Manage Settings",
                     "📖  View Rules",
                     "🚪  Exit"
@@ -46,6 +49,7 @@ public class Menu
             "⚡  Quick Start (Default Settings)" => CreateQuickStartConfig(),
             "🌐  Multiplayer (LAN)" => ShowMultiplayerAndReturn(),
             "📁  Load Preset Configuration" => LoadPresetConfiguration(),
+            "📊  View Hand History" => ShowHandHistoryAndReturn(),
             "⚙️   Manage Settings" => ManageSettingsAndReturn(),
             "📖  View Rules" => ShowRulesAndReturn(),
             "🚪  Exit" => null,
@@ -62,6 +66,21 @@ public class Menu
     private GameConfig? ShowRulesAndReturn()
     {
         ShowRules();
+        return SetupGame();
+    }
+
+    private GameConfig? ShowHandHistoryAndReturn()
+    {
+        if (_handHistoryMenu != null)
+        {
+            _handHistoryMenu.ShowAsync().GetAwaiter().GetResult();
+        }
+        else
+        {
+            AnsiConsole.MarkupLine("[yellow]Hand history is not available. Play some games first![/]");
+            Console.WriteLine("\nPress any key to continue...");
+            Console.ReadKey();
+        }
         return SetupGame();
     }
 

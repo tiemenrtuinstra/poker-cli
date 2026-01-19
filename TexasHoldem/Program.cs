@@ -1,10 +1,15 @@
 ﻿using System.Reflection;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using TexasHoldem.CLI;
+using TexasHoldem.Data;
+using TexasHoldem.Data.Observers;
+using TexasHoldem.Data.Services;
 using TexasHoldem.DependencyInjection;
 using TexasHoldem.Game;
+using TexasHoldem.Game.Events;
 
 namespace TexasHoldem;
 
@@ -51,6 +56,22 @@ internal class Program
         var services = new ServiceCollection();
         services.AddPokerServices();
         using var serviceProvider = services.BuildServiceProvider();
+
+        // Initialize database (create if not exists)
+        try
+        {
+            using var dbContext = serviceProvider.GetRequiredService<GameLogDbContext>();
+            dbContext.Database.EnsureCreated();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Warning: Could not initialize game history database: {ex.Message}");
+        }
+
+        // Get event publisher and logging observer
+        var eventPublisher = serviceProvider.GetRequiredService<IGameEventPublisher>();
+        var gameLogObserver = serviceProvider.GetRequiredService<GameLogObserver>();
+        eventPublisher.Subscribe(gameLogObserver);
 
         try
         {
@@ -102,9 +123,16 @@ internal class Program
                     // Local game - loop to allow "Play Again"
                     bool playingLocal = true;
                     var gameUI = serviceProvider.GetRequiredService<IGameUI>();
+                    var opponentProfiler = serviceProvider.GetRequiredService<IOpponentProfiler>();
                     while (playingLocal)
                     {
-                        var game = new TexasHoldemGame(gameConfig, gameUI);
+                        // Initialize session for game logging
+                        await gameLogObserver.InitializeSessionAsync(
+                            gameConfig.StartingChips,
+                            gameConfig.SmallBlind,
+                            gameConfig.BigBlind);
+
+                        var game = new TexasHoldemGame(gameConfig, gameUI, eventPublisher, opponentProfiler);
                         await game.StartGame();
 
                         // Game finished - show return options

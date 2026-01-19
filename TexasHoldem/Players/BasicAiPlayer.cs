@@ -17,7 +17,10 @@ public class BasicAiPlayer : AiPlayer
 
         UpdateOpponentStats(gameState);
 
-        var action = AiPersonality.MakeDecision(this, gameState, Personality!.Value, _random);
+        // Use historical profiles if available for smarter decisions
+        var profiles = GetHistoricalProfiles();
+        var action = AiPersonality.MakeDecision(this, gameState, Personality!.Value, _random,
+            profiles.Any() ? profiles : null);
 
         // Add some poker talk occasionally
         if (_random.NextDouble() < 0.2) // 20% chance

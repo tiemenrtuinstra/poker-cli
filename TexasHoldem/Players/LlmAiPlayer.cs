@@ -98,15 +98,27 @@ public abstract class LlmAiPlayer : BasicAiPlayer, IDisposable
         var gameStateJson = SerializeGameStateForAi(gameState);
         var personalityInstructions = GetPersonalityInstructions(Personality);
         var validActions = GetValidActionsDescription(gameState);
+        var opponentAnalysis = BuildOpponentAnalysis(gameState);
 
-        return $@"You are an AI poker player with a {Personality} personality playing Texas Hold'em.
+        var prompt = $@"You are an AI poker player with a {Personality} personality playing Texas Hold'em.
 
 GAME STATE:
 {gameStateJson}
 
 YOUR PERSONALITY ({Personality}):
 {personalityInstructions}
+";
 
+        // Add opponent analysis if we have historical data
+        if (!string.IsNullOrEmpty(opponentAnalysis))
+        {
+            prompt += $@"
+OPPONENT ANALYSIS (based on historical data):
+{opponentAnalysis}
+";
+        }
+
+        prompt += $@"
 VALID ACTIONS:
 {validActions}
 
@@ -119,6 +131,38 @@ IMPORTANT: You must respond with ONLY a JSON object, no other text. Format:
 
 Consider pot odds, hand strength, position, opponent tendencies, and your personality traits.
 Make your decision:";
+
+        return prompt;
+    }
+
+    /// <summary>
+    /// Build opponent analysis section for the prompt using historical data.
+    /// </summary>
+    private string BuildOpponentAnalysis(GameState gameState)
+    {
+        var profiles = GetHistoricalProfiles();
+        if (!profiles.Any())
+        {
+            return string.Empty;
+        }
+
+        var activeOpponents = gameState.Players
+            .Where(p => p.IsActive && !p.HasFolded && p.Name != Name && profiles.ContainsKey(p.Name))
+            .Select(p => profiles[p.Name])
+            .ToList();
+
+        if (!activeOpponents.Any())
+        {
+            return string.Empty;
+        }
+
+        var analysis = new System.Text.StringBuilder();
+        foreach (var profile in activeOpponents)
+        {
+            analysis.AppendLine(profile.ToPromptString());
+        }
+
+        return analysis.ToString();
     }
 
     protected string SerializeGameStateForAi(GameState gameState)

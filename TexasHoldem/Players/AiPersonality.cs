@@ -1,3 +1,4 @@
+using TexasHoldem.Data.Services;
 using TexasHoldem.Game;
 using TexasHoldem.Game.Enums;
 
@@ -5,26 +6,116 @@ namespace TexasHoldem.Players;
 
 public static class AiPersonality
 {
+    // Opponent profile context for enhanced decision making
+    private static IReadOnlyDictionary<string, OpponentProfileSummary>? _currentOpponentProfiles;
+
     public static PlayerAction MakeDecision(IPlayer player, GameState gameState, PersonalityType personality, Random random)
     {
+        return MakeDecision(player, gameState, personality, random, null);
+    }
+
+    public static PlayerAction MakeDecision(
+        IPlayer player,
+        GameState gameState,
+        PersonalityType personality,
+        Random random,
+        IReadOnlyDictionary<string, OpponentProfileSummary>? opponentProfiles)
+    {
+        _currentOpponentProfiles = opponentProfiles;
+
         var validActions = GetValidActions(player, gameState);
         var handStrength = EvaluateHandStrength(player, gameState);
-        
+
+        // Adjust decision based on opponent tendencies
+        var adjustedHandStrength = AdjustHandStrengthForOpponents(handStrength, gameState);
+
         return personality switch
         {
-            PersonalityType.Tight => MakeTightDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Loose => MakeLooseDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Aggressive => MakeAggressiveDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Passive => MakePassiveDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Bluffer => MakeBlufferDecision(player, gameState, validActions, handStrength, random),
+            PersonalityType.Tight => MakeTightDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Loose => MakeLooseDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Aggressive => MakeAggressiveDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Passive => MakePassiveDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Bluffer => MakeBlufferDecision(player, gameState, validActions, adjustedHandStrength, random),
             PersonalityType.Random => MakeRandomDecision(player, gameState, validActions, random),
-            PersonalityType.Fish => MakeFishDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Shark => MakeSharkDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.CallingStation => MakeCallingStationDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Maniac => MakeManiacDecision(player, gameState, validActions, handStrength, random),
-            PersonalityType.Nit => MakeNitDecision(player, gameState, validActions, handStrength, random),
+            PersonalityType.Fish => MakeFishDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Shark => MakeSharkDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.CallingStation => MakeCallingStationDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Maniac => MakeManiacDecision(player, gameState, validActions, adjustedHandStrength, random),
+            PersonalityType.Nit => MakeNitDecision(player, gameState, validActions, adjustedHandStrength, random),
             _ => MakeRandomDecision(player, gameState, validActions, random)
         };
+    }
+
+    /// <summary>
+    /// Adjust effective hand strength based on opponent tendencies.
+    /// Against tight opponents, weaker hands can be played more aggressively (higher fold equity).
+    /// Against loose/calling opponents, need stronger hands (lower fold equity).
+    /// </summary>
+    private static double AdjustHandStrengthForOpponents(double baseStrength, GameState gameState)
+    {
+        if (_currentOpponentProfiles == null || !_currentOpponentProfiles.Any())
+        {
+            return baseStrength;
+        }
+
+        // Get active opponents in the hand
+        var activeOpponents = gameState.Players
+            .Where(p => p.IsActive && !p.HasFolded && _currentOpponentProfiles.ContainsKey(p.Name))
+            .Select(p => _currentOpponentProfiles[p.Name])
+            .ToList();
+
+        if (!activeOpponents.Any())
+        {
+            return baseStrength;
+        }
+
+        // Calculate average opponent tightness
+        var avgFoldRate = activeOpponents.Average(p =>
+            gameState.BettingPhase == BettingPhase.PreFlop ? p.PreFlopFoldRate : p.PostFlopFoldRate);
+
+        // If opponents fold a lot (>50%), we have more fold equity - can play weaker hands
+        // If opponents rarely fold (<30%), need stronger hands
+        var foldEquityBonus = (avgFoldRate - 0.4) * 0.2; // -0.08 to +0.12
+
+        return Math.Clamp(baseStrength + foldEquityBonus, 0.0, 1.0);
+    }
+
+    /// <summary>
+    /// Check if current opponents are generally tight (high fold frequency).
+    /// Useful for bluff decisions.
+    /// </summary>
+    public static bool AreOpponentsTight(GameState gameState)
+    {
+        if (_currentOpponentProfiles == null) return false;
+
+        var activeOpponents = gameState.Players
+            .Where(p => p.IsActive && !p.HasFolded && _currentOpponentProfiles.ContainsKey(p.Name))
+            .Select(p => _currentOpponentProfiles[p.Name])
+            .ToList();
+
+        if (!activeOpponents.Any()) return false;
+
+        var avgFoldRate = activeOpponents.Average(p => p.PostFlopFoldRate);
+        return avgFoldRate > 0.5;
+    }
+
+    /// <summary>
+    /// Check if current opponents are generally passive (low aggression).
+    /// Useful for value betting decisions.
+    /// </summary>
+    public static bool AreOpponentsPassive(GameState gameState)
+    {
+        if (_currentOpponentProfiles == null) return false;
+
+        var activeOpponents = gameState.Players
+            .Where(p => p.IsActive && !p.HasFolded && _currentOpponentProfiles.ContainsKey(p.Name))
+            .Select(p => _currentOpponentProfiles[p.Name])
+            .ToList();
+
+        if (!activeOpponents.Any()) return false;
+
+        var avgAggression = activeOpponents.Average(p => p.AggressionFactor);
+        return avgAggression < 1.5;
     }
 
     private static PlayerAction MakeTightDecision(IPlayer player, GameState gameState, List<ActionType> validActions, double handStrength, Random random)

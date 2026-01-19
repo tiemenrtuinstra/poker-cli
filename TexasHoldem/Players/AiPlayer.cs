@@ -1,3 +1,4 @@
+using TexasHoldem.Data.Services;
 using TexasHoldem.Game;
 using TexasHoldem.Game.Enums;
 
@@ -6,7 +7,9 @@ namespace TexasHoldem.Players;
 public abstract class AiPlayer : IPlayer
 {
     protected readonly Random _random;
-    
+    protected IOpponentProfiler? _opponentProfiler;
+    protected Dictionary<string, OpponentProfileSummary> _historicalProfiles = new();
+
     public string Name { get; }
     public int Chips { get; set; }
     public List<Card> HoleCards { get; set; } = new();
@@ -14,7 +17,7 @@ public abstract class AiPlayer : IPlayer
     public bool IsAllIn { get; set; }
     public bool HasFolded { get; set; }
     public PersonalityType? Personality { get; }
-    
+
     // AI stats tracking
     protected Dictionary<string, PlayerStats> _opponentStats = new();
     protected int _handsPlayed = 0;
@@ -234,6 +237,81 @@ public abstract class AiPlayer : IPlayer
         public int Folds { get; set; }
         public int Calls { get; set; }
         public int AggressiveActions { get; set; }
+    }
+
+    /// <summary>
+    /// Set the opponent profiler for historical data access.
+    /// Called by the game infrastructure after player creation.
+    /// </summary>
+    public void SetOpponentProfiler(IOpponentProfiler? profiler)
+    {
+        _opponentProfiler = profiler;
+    }
+
+    /// <summary>
+    /// Load historical profiles for all opponents in the game.
+    /// Should be called at the start of a game session.
+    /// </summary>
+    public async Task LoadHistoricalProfilesAsync(IEnumerable<string> opponentNames)
+    {
+        if (_opponentProfiler == null) return;
+
+        _historicalProfiles.Clear();
+        foreach (var name in opponentNames.Where(n => n != Name))
+        {
+            try
+            {
+                var profile = await _opponentProfiler.GetProfileSummaryAsync(name);
+                if (profile != null)
+                {
+                    _historicalProfiles[name] = profile;
+                }
+            }
+            catch
+            {
+                // Silently ignore errors loading profiles
+            }
+        }
+    }
+
+    /// <summary>
+    /// Get historical fold frequency for an opponent.
+    /// Falls back to current session stats if no historical data.
+    /// </summary>
+    protected double GetHistoricalFoldFrequency(string opponentName, BettingPhase phase)
+    {
+        if (_historicalProfiles.TryGetValue(opponentName, out var profile))
+        {
+            return phase == BettingPhase.PreFlop
+                ? profile.PreFlopFoldRate
+                : profile.PostFlopFoldRate;
+        }
+
+        // Fall back to session stats
+        return GetOpponentTightness(opponentName);
+    }
+
+    /// <summary>
+    /// Get historical aggression factor for an opponent.
+    /// Falls back to current session stats if no historical data.
+    /// </summary>
+    protected double GetHistoricalAggression(string opponentName)
+    {
+        if (_historicalProfiles.TryGetValue(opponentName, out var profile))
+        {
+            return profile.AggressionFactor;
+        }
+
+        // Fall back to session stats
+        return GetOpponentAggression(opponentName);
+    }
+
+    /// <summary>
+    /// Get all opponent profiles for prompts (used by LLM players).
+    /// </summary>
+    protected IReadOnlyDictionary<string, OpponentProfileSummary> GetHistoricalProfiles()
+    {
+        return _historicalProfiles;
     }
 
     public override string ToString()

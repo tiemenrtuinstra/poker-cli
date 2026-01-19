@@ -1,6 +1,8 @@
 using Spectre.Console;
+using TexasHoldem.Data.Services;
 using TexasHoldem.Game;
 using TexasHoldem.Game.Enums;
+using TexasHoldem.Game.Events;
 using TexasHoldem.Players;
 using TexasHoldem.CLI;
 
@@ -14,13 +16,15 @@ public class TexasHoldemGame
     private readonly List<RoundResult> _roundHistory;
     private readonly Random _random;
     private readonly IGameUI _gameUI;
+    private readonly IGameEventPublisher? _eventPublisher;
+    private readonly IOpponentProfiler? _opponentProfiler;
     private bool _gameRunning;
 
     public bool IsGameRunning => _gameRunning;
     public int CurrentHandNumber => _gameState.HandNumber;
     public List<IPlayer> Players => _gameState.Players.ToList();
 
-    public TexasHoldemGame(GameConfig config, IGameUI? gameUI = null)
+    public TexasHoldemGame(GameConfig config, IGameUI? gameUI = null, IGameEventPublisher? eventPublisher = null, IOpponentProfiler? opponentProfiler = null)
     {
         _config = config;
         _random = new Random();
@@ -28,6 +32,8 @@ public class TexasHoldemGame
         _gameState = new GameState();
         _roundHistory = [];
         _gameUI = gameUI ?? new SpectreGameUI();
+        _eventPublisher = eventPublisher;
+        _opponentProfiler = opponentProfiler;
         _gameRunning = false;
 
         InitializeGame();
@@ -58,6 +64,11 @@ public class TexasHoldemGame
             var aiPlayers = aiFactory.CreateAiPlayers(_config.AiPlayerCount, _config.StartingChips);
             foreach (var aiPlayer in aiPlayers)
             {
+                // Inject opponent profiler for historical learning
+                if (aiPlayer is AiPlayer ai && _opponentProfiler != null)
+                {
+                    ai.SetOpponentProfiler(_opponentProfiler);
+                }
                 _gameState.Players.Add(aiPlayer);
             }
         }
@@ -91,6 +102,9 @@ public class TexasHoldemGame
         _gameRunning = true;
         Console.WriteLine("\n🚀 Starting Texas Hold'em Game!");
         Console.WriteLine("Press Ctrl+C to quit at any time.\n");
+
+        // Load historical profiles for AI learning
+        await LoadHistoricalProfilesForAiPlayersAsync();
 
         try
         {
@@ -138,7 +152,7 @@ public class TexasHoldemGame
         try
         {
             // Create and play the round
-            var round = new Round(_gameState, _dealer, _gameUI);
+            var round = new Round(_gameState, _dealer, _gameUI, _eventPublisher);
             await round.PlayRoundAsync();
 
             // Save round result
@@ -324,6 +338,25 @@ public class TexasHoldemGame
         _gameUI.DisplayPlayerSummary(_gameState.Players, _gameState.DealerPosition);
     }
 
+    private async Task LoadHistoricalProfilesForAiPlayersAsync()
+    {
+        if (_opponentProfiler == null) return;
+
+        var playerNames = _gameState.Players.Select(p => p.Name).ToList();
+
+        foreach (var player in _gameState.Players.OfType<AiPlayer>())
+        {
+            try
+            {
+                await player.LoadHistoricalProfilesAsync(playerNames);
+            }
+            catch
+            {
+                // Silently ignore errors loading profiles
+            }
+        }
+    }
+
     private bool IsGameOver()
     {
         var activePlayers = _gameState.Players.Where(p => p.IsActive && p.Chips > 0).ToList();
@@ -347,6 +380,12 @@ public class TexasHoldemGame
         _gameRunning = false;
 
         var activePlayers = _gameState.Players.Where(p => p.IsActive && p.Chips > 0).ToList();
+        var winner = activePlayers.Count == 1 ? activePlayers.First() : activePlayers.OrderByDescending(p => p.Chips).FirstOrDefault();
+
+        // Publish game ended event
+        var reason = activePlayers.Count <= 1 ? "Single player remaining" :
+                     (_config.MaxHands > 0 && _gameState.HandNumber >= _config.MaxHands) ? "Max hands reached" : "Game completed";
+        _eventPublisher?.Publish(new GameEndedEvent(winner, _gameState.HandNumber, reason));
 
         // Display game over with visual rankings
         _gameUI.DisplayGameOver(activePlayers);
