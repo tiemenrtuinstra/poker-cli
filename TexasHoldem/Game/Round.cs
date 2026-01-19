@@ -1,5 +1,6 @@
 using TexasHoldem.Game;
 using TexasHoldem.Game.Enums;
+using TexasHoldem.Game.Events;
 using TexasHoldem.Players;
 using TexasHoldem.CLI;
 
@@ -12,20 +13,27 @@ public class Round
     private readonly Pot _pot;
     private readonly List<BettingRoundSummary> _bettingSummaries;
     private readonly IGameUI _gameUI;
+    private readonly IGameEventPublisher? _eventPublisher;
 
     public int RoundNumber => _gameState.HandNumber;
     public GamePhase CurrentPhase => _gameState.Phase;
     public List<Card> CommunityCards => _gameState.CommunityCards.ToList();
     public bool IsComplete { get; private set; }
 
-    public Round(GameState gameState, Dealer dealer, IGameUI? gameUI = null)
+    public Round(GameState gameState, Dealer dealer, IGameUI? gameUI = null, IGameEventPublisher? eventPublisher = null)
     {
         _gameState = gameState;
         _dealer = dealer;
         _pot = new Pot();
         _bettingSummaries = [];
         _gameUI = gameUI ?? new SpectreGameUI();
+        _eventPublisher = eventPublisher;
         IsComplete = false;
+    }
+
+    private void PublishEvent(GameEvent gameEvent)
+    {
+        _eventPublisher?.Publish(gameEvent);
     }
 
     public async Task PlayRoundAsync()
@@ -68,11 +76,26 @@ public class Round
         _gameState.Phase = GamePhase.PreFlop;
         _gameState.BettingPhase = BettingPhase.PreFlop;
 
+        // Publish hand started event
+        PublishEvent(new HandStartedEvent(
+            _gameState.HandNumber,
+            _gameState.Players.AsReadOnly(),
+            _gameState.DealerPosition,
+            _gameState.SmallBlindAmount,
+            _gameState.BigBlindAmount));
+
         _gameUI.DisplayPhaseHeader(BettingPhase.PreFlop);
 
         // Deal hole cards with animation
         _gameUI.ShowDealingAnimation("Dealing hole cards", 1500);
-        _dealer.DealHoleCards(_gameState.Players.Where(p => p.IsActive).ToList());
+        var activePlayers = _gameState.Players.Where(p => p.IsActive).ToList();
+        _dealer.DealHoleCards(activePlayers);
+
+        // Publish hole cards dealt events
+        foreach (var player in activePlayers)
+        {
+            PublishEvent(new HoleCardsDealtEvent(player, player.HoleCards.AsReadOnly()));
+        }
 
         // Post blinds and antes
         PostBlindsAndAntes();
@@ -80,15 +103,25 @@ public class Round
         // Show blinds posted with visual display
         var sbPlayer = _gameState.Players[_gameState.SmallBlindPosition];
         var bbPlayer = _gameState.Players[_gameState.BigBlindPosition];
+
+        // Publish blinds posted event
+        PublishEvent(new BlindsPostedEvent(sbPlayer, _gameState.SmallBlindAmount, bbPlayer, _gameState.BigBlindAmount));
+
         _gameUI.DisplayBlindsPosted(sbPlayer, _gameState.SmallBlindAmount, bbPlayer, _gameState.BigBlindAmount);
 
         _gameUI.DisplayPotBox(_pot.TotalPotAmount);
+
+        // Publish betting round started
+        PublishEvent(new BettingRoundStartedEvent(BettingPhase.PreFlop, _pot.TotalPotAmount));
 
         // Note: Cards are shown privately to each human player when it's their turn
         // This prevents other players from seeing each other's cards
 
         // Conduct betting round
         await ConductBettingRoundAsync();
+
+        // Publish betting round completed
+        PublishEvent(new BettingRoundCompletedEvent(BettingPhase.PreFlop, _pot.TotalPotAmount));
     }
 
     private async Task PlayFlopAsync()
@@ -102,10 +135,18 @@ public class Round
         var flop = _dealer.DealFlop();
         _gameState.CommunityCards.AddRange(flop);
 
+        // Publish community cards revealed
+        PublishEvent(new CommunityCardsRevealedEvent(
+            BettingPhase.Flop,
+            flop.AsReadOnly(),
+            _gameState.CommunityCards.AsReadOnly()));
+
         // Show community cards with ASCII art
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.Flop);
 
+        PublishEvent(new BettingRoundStartedEvent(BettingPhase.Flop, _pot.TotalPotAmount));
         await ConductBettingRoundAsync();
+        PublishEvent(new BettingRoundCompletedEvent(BettingPhase.Flop, _pot.TotalPotAmount));
     }
 
     private async Task PlayTurnAsync()
@@ -119,10 +160,18 @@ public class Round
         var turn = _dealer.DealTurn();
         _gameState.CommunityCards.Add(turn);
 
+        // Publish community cards revealed
+        PublishEvent(new CommunityCardsRevealedEvent(
+            BettingPhase.Turn,
+            new List<Card> { turn }.AsReadOnly(),
+            _gameState.CommunityCards.AsReadOnly()));
+
         // Show community cards with ASCII art
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.Turn);
 
+        PublishEvent(new BettingRoundStartedEvent(BettingPhase.Turn, _pot.TotalPotAmount));
         await ConductBettingRoundAsync();
+        PublishEvent(new BettingRoundCompletedEvent(BettingPhase.Turn, _pot.TotalPotAmount));
     }
 
     private async Task PlayRiverAsync()
@@ -136,10 +185,18 @@ public class Round
         var river = _dealer.DealRiver();
         _gameState.CommunityCards.Add(river);
 
+        // Publish community cards revealed
+        PublishEvent(new CommunityCardsRevealedEvent(
+            BettingPhase.River,
+            new List<Card> { river }.AsReadOnly(),
+            _gameState.CommunityCards.AsReadOnly()));
+
         // Show community cards with ASCII art
         _gameUI.DisplayCommunityCardsAscii(_gameState.CommunityCards, BettingPhase.River);
 
+        PublishEvent(new BettingRoundStartedEvent(BettingPhase.River, _pot.TotalPotAmount));
         await ConductBettingRoundAsync();
+        PublishEvent(new BettingRoundCompletedEvent(BettingPhase.River, _pot.TotalPotAmount));
     }
 
     private async Task PlayShowdownAsync()
@@ -186,6 +243,16 @@ public class Round
         // Distribute winnings
         var winners = _pot.DistributePots(playersInShowdown, player =>
             HandEvaluator.EvaluateHand(player.HoleCards.Concat(_gameState.CommunityCards)));
+
+        // Publish pot won events for each winner
+        foreach (var potWinner in winners)
+        {
+            PublishEvent(new PotWonEvent(
+                potWinner.Player,
+                potWinner.Amount,
+                potWinner.HandDescription,
+                true));
+        }
 
         // Display winners
         _gameUI.DisplayShowdownWinners(winners);
@@ -244,6 +311,9 @@ public class Round
 
             _gameUI.DisplayPlayerTurn(currentPlayer, currentPlayer.Chips);
 
+            // Publish player turn event
+            PublishEvent(new PlayerTurnEvent(currentPlayer, currentPlayer.Chips));
+
             try
             {
                 _gameState.CurrentPlayerPosition = currentPlayerPos;
@@ -279,6 +349,13 @@ public class Round
 
                 // Process the action
                 BettingLogic.ProcessAction(currentPlayer, action, _gameState, _pot);
+
+                // Publish player action event
+                PublishEvent(new PlayerActionEvent(
+                    currentPlayer,
+                    action.Action,
+                    action.Amount,
+                    _gameState.BettingPhase));
 
                 // Display the action visually
                 _gameUI.DisplayPlayerAction(currentPlayer, action.Action, action.Amount);
@@ -367,6 +444,8 @@ public class Round
         _gameState.Phase = GamePhase.HandComplete;
         IsComplete = true;
 
+        var winners = new List<PotWinner>();
+
         // If pot hasn't been distributed yet (winner by fold before showdown), distribute it now
         var playersInHand = BettingLogic.GetPlayersInHand(_gameState.Players);
         if (playersInHand.Count == 1 && _pot.TotalPotAmount > 0)
@@ -375,10 +454,34 @@ public class Round
             var winAmount = _pot.TotalPotAmount;
             winner.AddChips(winAmount);
             _gameUI.DisplayFoldWinner(winner, winAmount);
+
+            // Publish pot won event
+            PublishEvent(new PotWonEvent(winner, winAmount, null, false));
+            winners.Add(new PotWinner
+            {
+                Player = winner,
+                Amount = winAmount,
+                PotType = "Main Pot",
+                HandDescription = "Winner by fold"
+            });
         }
 
-        // Eliminate busted players
+        // Eliminate busted players and track eliminations
+        var beforeElimination = _gameState.Players.Where(p => p.IsActive).ToList();
         var remainingPlayers = BettingLogic.EliminateBustedPlayers(_gameState.Players);
+
+        // Publish elimination events for players who got eliminated
+        var eliminatedPlayers = beforeElimination.Except(remainingPlayers).ToList();
+        foreach (var eliminated in eliminatedPlayers)
+        {
+            PublishEvent(new PlayerEliminatedEvent(eliminated, remainingPlayers.Count + 1));
+        }
+
+        // Publish hand ended event
+        PublishEvent(new HandEndedEvent(
+            _gameState.HandNumber,
+            winners.AsReadOnly(),
+            remainingPlayers.AsReadOnly()));
 
         // Display hand summary with Spectre tables and panels
         _gameUI.DisplayHandSummary(_pot.TotalPotAmount, _bettingSummaries.Count, _gameState.Players);
