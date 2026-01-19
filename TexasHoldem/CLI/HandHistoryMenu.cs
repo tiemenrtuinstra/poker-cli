@@ -20,7 +20,7 @@ public class HandHistoryMenu
         while (true)
         {
             Console.Clear();
-            AnsiConsole.Write(new FigletText("Hand History").Color(Color.Aqua));
+            HeaderHelper.DisplaySubHeader("HISTORY", Color.Aqua);
 
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()

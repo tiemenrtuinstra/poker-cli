@@ -23,11 +23,8 @@ public class ReplayViewer
         {
             AnsiConsole.Clear();
 
-            // Header
-            AnsiConsole.Write(
-                new FigletText("REPLAY")
-                    .Color(Color.Cyan1)
-                    .Centered());
+            // Header - consistent with all screens
+            HeaderHelper.DisplaySubHeader("REPLAY", Color.Cyan1);
 
             AnsiConsole.Write(new Rule("[bold cyan]Hand History Viewer[/]").RuleStyle("cyan"));
             AnsiConsole.WriteLine();
@@ -397,10 +394,7 @@ public class ReplayViewer
     {
         AnsiConsole.Clear();
 
-        AnsiConsole.Write(
-            new FigletText("STATS")
-                .Color(Color.Magenta1)
-                .Centered());
+        HeaderHelper.DisplaySubHeader("STATS", Color.Magenta1);
 
         AnsiConsole.Write(new Rule("[bold magenta]Hand Summary Statistics[/]").RuleStyle("magenta"));
         AnsiConsole.WriteLine();
@@ -477,10 +471,7 @@ public class ReplayViewer
     {
         AnsiConsole.Clear();
 
-        AnsiConsole.Write(
-            new FigletText("FILES")
-                .Color(Color.Green)
-                .Centered());
+        HeaderHelper.DisplaySubHeader("FILES", Color.Green);
 
         AnsiConsole.Write(new Rule("[bold green]Game Statistics[/]").RuleStyle("green"));
         AnsiConsole.WriteLine();

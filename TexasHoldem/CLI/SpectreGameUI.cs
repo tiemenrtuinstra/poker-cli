@@ -18,11 +18,8 @@ public class SpectreGameUI : IGameUI
     {
         AnsiConsole.Clear();
 
-        // Header
-        var header = new FigletText("Texas Hold'em")
-            .Color(Color.Green)
-            .Centered();
-        AnsiConsole.Write(header);
+        // Header - consistent with all screens
+        HeaderHelper.DisplayCompactHeader();
 
         // Main table layout
         var layout = new Layout("Root")

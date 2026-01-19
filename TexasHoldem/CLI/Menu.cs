@@ -131,37 +131,9 @@ public class Menu
     {
         AnsiConsole.Clear();
 
-        // ASCII Art Cards Header - centered using Spectre.Console Align
-        var cardsArt = string.Join("\n",
-            "[red]┌─────┐ ┌─────┐[/] [blue]┌─────┐ ┌─────┐[/]",
-            "[red]│A    │ │K    │[/] [blue]│Q    │ │J    │[/]",
-            "[red]│  ♥  │ │  ♦  │[/] [blue]│  ♠  │ │  ♣  │[/]",
-            "[red]│    A│ │    K│[/] [blue]│    Q│ │    J│[/]",
-            "[red]└─────┘ └─────┘[/] [blue]└─────┘ └─────┘[/]"
-        );
-
-        AnsiConsole.WriteLine();
-        AnsiConsole.Write(Align.Center(new Markup(cardsArt)));
-        AnsiConsole.WriteLine();
-        AnsiConsole.WriteLine();
-
-        // ASCII Art Title - TEXAS HOLD'EM - centered
-        var titleArt = string.Join("\n",
-            "[green] _____   _____  __  __     _      ____      _   _    ___    _       ____    _   _____   __  __[/]",
-            "[green]|_   _| | ____| \\ \\/ /    / \\    / ___|    | | | |  / _ \\  | |     |  _ \\  ( ) | ____| |  \\/  |[/]",
-            "[green]  | |   |  _|    \\  /    / _ \\   \\___ \\    | |_| | | | | | | |     | | | | |/  |  _|   | |\\/| |[/]",
-            "[green]  | |   | |___   /  \\   / ___ \\   ___) |   |  _  | | |_| | | |___  | |_| |     | |___  | |  | |[/]",
-            "[green]  |_|   |_____| /_/\\_\\ /_/   \\_\\ |____/    |_| |_|  \\___/  |_____| |____/      |_____| |_|  |_|[/]"
-        );
-
-        AnsiConsole.Write(Align.Center(new Markup(titleArt)));
-        AnsiConsole.WriteLine();
-        AnsiConsole.WriteLine();
-
-        // Subtitle - centered
-        AnsiConsole.Write(Align.Center(new Markup("[bold yellow]♠ ♥ ♦ ♣[/]  [italic]The Ultimate CLI Poker Experience[/]  [bold yellow]♣ ♦ ♥ ♠[/]")));
-        AnsiConsole.WriteLine();
-        AnsiConsole.WriteLine();
+        // Use consistent header
+        HeaderHelper.DisplayMainHeader();
+        HeaderHelper.DisplaySubtitle("The Ultimate CLI Poker Experience");
 
         // Info table - centered
         var infoTable = new Table()
@@ -475,10 +447,7 @@ public class Menu
     {
         AnsiConsole.Clear();
 
-        AnsiConsole.Write(
-            new FigletText("RULES")
-                .Color(Color.Yellow)
-                .Centered());
+        HeaderHelper.DisplaySubHeader("RULES", Color.Yellow);
 
         AnsiConsole.Write(new Rule("[bold yellow]Texas Hold'em Poker Rules[/]").RuleStyle("yellow"));
         AnsiConsole.WriteLine();
@@ -705,10 +674,7 @@ public class Menu
         {
             AnsiConsole.Clear();
 
-            AnsiConsole.Write(
-                new FigletText("SETTINGS")
-                    .Color(Color.Grey)
-                    .Centered());
+            HeaderHelper.DisplaySubHeader("SETTINGS", Color.Grey);
 
             AnsiConsole.Write(new Rule("[bold grey]Settings Management[/]").RuleStyle("grey"));
             AnsiConsole.WriteLine();
