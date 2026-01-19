@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.Players;
 

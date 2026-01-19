@@ -1,4 +1,4 @@
-namespace TexasHoldem.Domain.Enums;
+namespace TexasHoldem.Game.Enums;
 
 /// <summary>
 /// Represents the four suits in a standard deck of playing cards.

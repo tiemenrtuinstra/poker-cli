@@ -1,6 +1,6 @@
 using System.Net.WebSockets;
 using System.Text;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 using TexasHoldem.Network.Messages;
 
 namespace TexasHoldem.Network.Client;

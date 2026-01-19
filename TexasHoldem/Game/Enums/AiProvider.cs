@@ -1,4 +1,4 @@
-namespace TexasHoldem.Domain.Enums;
+namespace TexasHoldem.Game.Enums;
 
 /// <summary>
 /// Supported AI providers for LLM-powered poker players

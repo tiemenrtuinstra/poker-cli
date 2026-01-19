@@ -1,4 +1,4 @@
-using TexasHoldem.Domain;
+using TexasHoldem.Game;
 
 namespace TexasHoldem.Network.Chat;
 

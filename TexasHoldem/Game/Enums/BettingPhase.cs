@@ -1,4 +1,4 @@
-namespace TexasHoldem.Domain.Enums;
+namespace TexasHoldem.Game.Enums;
 
 /// <summary>
 /// Represents the different phases of betting in a Texas Hold'em hand.

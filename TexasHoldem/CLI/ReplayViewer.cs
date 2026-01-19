@@ -1,6 +1,6 @@
 using Spectre.Console;
-using TexasHoldem.Domain;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.CLI;
 

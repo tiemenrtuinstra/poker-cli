@@ -50,17 +50,17 @@ public class ConfigurationManager
         };
     }
 
-    private List<Domain.Enums.AiProvider> ParseEnabledProviders(List<string> providerNames)
+    private List<Game.Enums.AiProvider> ParseEnabledProviders(List<string> providerNames)
     {
-        var providers = new List<Domain.Enums.AiProvider>();
+        var providers = new List<Game.Enums.AiProvider>();
         foreach (var name in providerNames)
         {
-            if (Enum.TryParse<Domain.Enums.AiProvider>(name, true, out var provider))
+            if (Enum.TryParse<Game.Enums.AiProvider>(name, true, out var provider))
             {
                 providers.Add(provider);
             }
         }
-        return providers.Any() ? providers : new List<Domain.Enums.AiProvider> { Domain.Enums.AiProvider.None };
+        return providers.Any() ? providers : [Game.Enums.AiProvider.None];
     }
 
     private AppConfig LoadConfiguration()

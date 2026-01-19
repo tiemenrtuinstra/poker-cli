@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.Network.Messages;
 

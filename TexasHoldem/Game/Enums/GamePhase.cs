@@ -1,4 +1,4 @@
-namespace TexasHoldem.Domain.Enums;
+namespace TexasHoldem.Game.Enums;
 
 /// <summary>
 /// Represents the overall phases of a poker game from setup to completion.

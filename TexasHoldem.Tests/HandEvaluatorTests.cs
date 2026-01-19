@@ -1,5 +1,5 @@
-using TexasHoldem.Domain;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game;
+using TexasHoldem.Game.Enums;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace TexasHoldem.Tests;

@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 using TexasHoldem.Players;
 
-namespace TexasHoldem.Domain;
+namespace TexasHoldem.Game;
 
 public class GameState
 {

@@ -1,4 +1,4 @@
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.CLI;
 

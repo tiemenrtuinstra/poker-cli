@@ -1,7 +1,7 @@
 using System.Reflection;
 using Spectre.Console;
-using TexasHoldem.Domain;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.CLI;
 
@@ -292,12 +292,12 @@ public class Menu
             AnsiConsole.MarkupLine($"[green]✓[/] API keys found: [bold]{string.Join(", ", configuredProviders)}[/]");
 
             var activeProviders = config.EnabledProviders
-                .Where(p => p == Domain.Enums.AiProvider.None || configuredProviders.Contains(p))
+                .Where(p => p == Game.Enums.AiProvider.None || configuredProviders.Contains(p))
                 .ToList();
 
-            if (activeProviders.Any(p => p != Domain.Enums.AiProvider.None))
+            if (activeProviders.Any(p => p != Game.Enums.AiProvider.None))
             {
-                AnsiConsole.MarkupLine($"[green]✓[/] Will use: [bold]{string.Join(", ", activeProviders.Where(p => p != Domain.Enums.AiProvider.None))}[/]");
+                AnsiConsole.MarkupLine($"[green]✓[/] Will use: [bold]{string.Join(", ", activeProviders.Where(p => p != Game.Enums.AiProvider.None))}[/]");
             }
             else
             {
@@ -441,7 +441,7 @@ public class Menu
         var configuredProviders = config.GetConfiguredProviders();
         if (configuredProviders.Any())
         {
-            var providers = string.Join(", ", config.EnabledProviders.Where(p => configuredProviders.Contains(p) || p == Domain.Enums.AiProvider.None));
+            var providers = string.Join(", ", config.EnabledProviders.Where(p => configuredProviders.Contains(p) || p == Game.Enums.AiProvider.None));
             table.AddRow("[blue]AI Providers[/]", providers);
         }
         else

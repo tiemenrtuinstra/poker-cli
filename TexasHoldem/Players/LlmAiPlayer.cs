@@ -1,6 +1,6 @@
 using System.Text.Json;
-using TexasHoldem.Domain;
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.Players;
 

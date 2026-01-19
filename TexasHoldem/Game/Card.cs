@@ -1,8 +1,8 @@
 using System.Text;
 
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 
-namespace TexasHoldem.Domain;
+namespace TexasHoldem.Game;
 
 public record Card(Suit Suit, Rank Rank) : IComparable<Card>
 {

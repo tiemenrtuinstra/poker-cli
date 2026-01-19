@@ -1,4 +1,4 @@
-namespace TexasHoldem.Domain.Enums;
+namespace TexasHoldem.Game.Enums;
 
 /// <summary>
 /// Represents the different actions a player can take during a betting round.

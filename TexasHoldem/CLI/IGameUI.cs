@@ -1,7 +1,6 @@
-using TexasHoldem.Domain;
-using TexasHoldem.Domain.Enums;
-using TexasHoldem.Players;
 using TexasHoldem.Game;
+using TexasHoldem.Game.Enums;
+using TexasHoldem.Players;
 
 namespace TexasHoldem.CLI;
 

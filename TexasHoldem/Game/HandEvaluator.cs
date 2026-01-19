@@ -1,6 +1,6 @@
-using TexasHoldem.Domain.Enums;
+using TexasHoldem.Game.Enums;
 
-namespace TexasHoldem.Domain;
+namespace TexasHoldem.Game;
 
 public class HandEvaluator
 {

@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using TexasHoldem.Domain;
+using TexasHoldem.Game;
 using TexasHoldem.Network.Messages;
 using TexasHoldem.Network.Server;
 
