@@ -19,7 +19,6 @@ on:
 env:
   DOTNET_VERSION: '10.0.x'
   PROJECT_PATH: 'TexasHoldem/TexasHoldem.csproj'
-  CONFIG_PATH: 'TexasHoldem/config.json'
 
 jobs:
   # Job to create a new version tag (only for manual triggers)
@@ -160,70 +159,9 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Apply configuration from GitHub Variables
-        shell: bash
-        run: |
-          CONFIG_FILE="${{ env.CONFIG_PATH }}"
-
-          echo "Applying GitHub Variables to config.json..."
-
-          # Game settings
-          if [ -n "${{ vars.DEFAULT_HUMAN_PLAYERS }}" ]; then
-            jq '.game.defaultHumanPlayers = ${{ vars.DEFAULT_HUMAN_PLAYERS }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.DEFAULT_AI_PLAYERS }}" ]; then
-            jq '.game.defaultAiPlayers = ${{ vars.DEFAULT_AI_PLAYERS }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.DEFAULT_STARTING_CHIPS }}" ]; then
-            jq '.game.defaultStartingChips = ${{ vars.DEFAULT_STARTING_CHIPS }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.DEFAULT_SMALL_BLIND }}" ]; then
-            jq '.game.defaultSmallBlind = ${{ vars.DEFAULT_SMALL_BLIND }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.DEFAULT_BIG_BLIND }}" ]; then
-            jq '.game.defaultBigBlind = ${{ vars.DEFAULT_BIG_BLIND }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.DEFAULT_ANTE }}" ]; then
-            jq '.game.defaultAnte = ${{ vars.DEFAULT_ANTE }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-
-          # AI Models
-          if [ -n "${{ vars.CLAUDE_MODEL }}" ]; then
-            jq '.ai.claudeModel = "${{ vars.CLAUDE_MODEL }}"' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.GEMINI_MODEL }}" ]; then
-            jq '.ai.geminiModel = "${{ vars.GEMINI_MODEL }}"' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.OPENAI_MODEL }}" ]; then
-            jq '.ai.openAiModel = "${{ vars.OPENAI_MODEL }}"' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-
-          # AI behavior
-          if [ -n "${{ vars.AI_THINKING_DELAY_MIN }}" ]; then
-            jq '.ai.thinkingDelayMin = ${{ vars.AI_THINKING_DELAY_MIN }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.AI_THINKING_DELAY_MAX }}" ]; then
-            jq '.ai.thinkingDelayMax = ${{ vars.AI_THINKING_DELAY_MAX }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.POKER_TALK_FREQUENCY }}" ]; then
-            jq '.ai.pokerTalkFrequency = ${{ vars.POKER_TALK_FREQUENCY }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-
-          # Tournament settings
-          if [ -n "${{ vars.BLIND_INCREASE_INTERVAL }}" ]; then
-            jq '.tournament.blindIncreaseInterval = ${{ vars.BLIND_INCREASE_INTERVAL }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-          if [ -n "${{ vars.BLIND_INCREASE_MULTIPLIER }}" ]; then
-            jq '.tournament.blindIncreaseMultiplier = ${{ vars.BLIND_INCREASE_MULTIPLIER }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-
-          # Display settings
-          if [ -n "${{ vars.ANIMATION_SPEED }}" ]; then
-            jq '.display.animationSpeed = ${{ vars.ANIMATION_SPEED }}' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-          fi
-
-          echo "Final config.json:"
-          cat "$CONFIG_FILE"
+      # Note: Settings are now stored in SQLite database with defaults defined in code
+      # (ProgramSettingsEntity.cs and GameDefaultsEntity.cs)
+      # No config.json modification needed anymore
 
       - name: Restore dependencies
         run: dotnet restore ${{ env.PROJECT_PATH }}

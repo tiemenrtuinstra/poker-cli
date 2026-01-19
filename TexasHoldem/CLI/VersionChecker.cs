@@ -470,12 +470,12 @@ public class VersionChecker
     {
         try
         {
-            // Check config to see if update check is enabled
+            // Note: Update check is always enabled by default
+            // Users can skip by setting SKIP_UPDATE_CHECK=true in environment
             if (forceCheck != true)
             {
-                var configManager = new ConfigurationManager();
-                var config = configManager.GetConfiguration();
-                if (!config.Updates.CheckForUpdatesOnStartup)
+                var skipCheck = Environment.GetEnvironmentVariable("SKIP_UPDATE_CHECK");
+                if (skipCheck?.ToLowerInvariant() == "true")
                     return;
             }
 

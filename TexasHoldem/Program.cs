@@ -65,7 +65,18 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Warning: Could not initialize game history database: {ex.Message}");
+            Console.Error.WriteLine($"Warning: Could not initialize database: {ex.Message}");
+        }
+
+        // Initialize configuration from SQLite
+        try
+        {
+            var configManager = serviceProvider.GetRequiredService<ConfigurationManager>();
+            await configManager.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Warning: Could not initialize settings: {ex.Message}");
         }
 
         // Get event publisher and logging observer

@@ -16,6 +16,10 @@ public class GameLogDbContext : DbContext
     public DbSet<CommunityCardEntity> CommunityCards => Set<CommunityCardEntity>();
     public DbSet<OutcomeEntity> Outcomes => Set<OutcomeEntity>();
 
+    // Settings tables (single row each)
+    public DbSet<ProgramSettingsEntity> ProgramSettings => Set<ProgramSettingsEntity>();
+    public DbSet<GameDefaultsEntity> GameDefaults => Set<GameDefaultsEntity>();
+
     public GameLogDbContext(DatabaseSettings settings)
     {
         _settings = settings;
@@ -131,6 +135,25 @@ public class GameLogDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.HandId);
             entity.HasIndex(e => e.PlayerId);
+        });
+
+        // ProgramSettings configuration (single row)
+        modelBuilder.Entity<ProgramSettingsEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EnabledProviders).HasMaxLength(100);
+            entity.Property(e => e.ClaudeModel).HasMaxLength(100);
+            entity.Property(e => e.GeminiModel).HasMaxLength(100);
+            entity.Property(e => e.OpenAiModel).HasMaxLength(100);
+            entity.Property(e => e.DefaultHumanNames).HasMaxLength(500);
+            entity.Property(e => e.CustomAiNames).HasMaxLength(1000);
+            entity.Property(e => e.LogLevel).HasMaxLength(20);
+        });
+
+        // GameDefaults configuration (single row)
+        modelBuilder.Entity<GameDefaultsEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
         });
     }
 }

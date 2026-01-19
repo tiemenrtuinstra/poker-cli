@@ -13,7 +13,17 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddPokerServices(this IServiceCollection services)
     {
-        // Configuration - singleton, loads once at startup
+        // Database services - must be registered first
+        services.AddSingleton<DatabaseSettings>();
+        services.AddDbContext<GameLogDbContext>(ServiceLifetime.Transient);
+        services.AddTransient<IGameLogRepository, GameLogRepository>();
+        services.AddTransient<IGameLogService, GameLogService>();
+        services.AddTransient<IGameHistoryQueryService, GameHistoryQueryService>();
+
+        // Settings service - stores settings in SQLite
+        services.AddTransient<ISettingsService, SettingsService>();
+
+        // Configuration - singleton, uses SettingsService
         services.AddSingleton<ConfigurationManager>();
 
         // Event system - singleton so all components share the same publisher
@@ -26,13 +36,6 @@ public static class ServiceCollectionExtensions
         // Menu system
         services.AddTransient<NetworkMenu>();
         services.AddTransient<Menu>();
-
-        // Database services
-        services.AddSingleton<DatabaseSettings>();
-        services.AddDbContext<GameLogDbContext>(ServiceLifetime.Transient);
-        services.AddTransient<IGameLogRepository, GameLogRepository>();
-        services.AddTransient<IGameLogService, GameLogService>();
-        services.AddTransient<IGameHistoryQueryService, GameHistoryQueryService>();
 
         // Opponent profiling for AI learning
         services.AddTransient<IOpponentProfiler, OpponentProfiler>();

@@ -704,7 +704,7 @@ public class Menu
                 case "Reset to Defaults":
                     if (AnsiConsole.Confirm("[yellow]Are you sure you want to reset all settings to defaults?[/]", false))
                     {
-                        _configManager.ResetToDefaults();
+                        _configManager.ResetToDefaultsAsync().GetAwaiter().GetResult();
                         AnsiConsole.MarkupLine("[green]Settings reset to defaults![/]");
                         _inputHelper.PressAnyKeyToContinue();
                     }
@@ -727,7 +727,7 @@ public class Menu
 
         if (updatedConfig != null)
         {
-            _configManager.UpdateGameDefaults(updatedConfig);
+            _configManager.UpdateGameDefaultsAsync(updatedConfig).GetAwaiter().GetResult();
             AnsiConsole.MarkupLine("[green]Game defaults updated and saved![/]");
         }
 

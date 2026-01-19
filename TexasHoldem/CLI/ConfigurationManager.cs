@@ -1,282 +1,209 @@
-using System.Text.Json;
+using TexasHoldem.Data.Entities;
+using TexasHoldem.Data.Services;
+using TexasHoldem.Game.Enums;
 
 namespace TexasHoldem.CLI;
 
 public class ConfigurationManager
 {
-    private const string DefaultConfigFile = "config.json";
-    private AppConfig _config;
-    private readonly string _configFilePath;
+    private readonly ISettingsService _settingsService;
+    private ProgramSettingsEntity? _programSettings;
+    private GameDefaultsEntity? _gameDefaults;
 
-    public ConfigurationManager(string? configFilePath = null)
+    public ConfigurationManager(ISettingsService settingsService)
     {
-        _configFilePath = configFilePath ?? DefaultConfigFile;
-        _config = LoadConfiguration();
+        _settingsService = settingsService;
     }
 
-    public AppConfig GetConfiguration() => _config;
+    /// <summary>
+    /// Initialize settings - must be called at startup
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        await _settingsService.EnsureSettingsExistAsync();
+        _programSettings = await _settingsService.GetProgramSettingsAsync();
+        _gameDefaults = await _settingsService.GetGameDefaultsAsync();
+    }
+
+    public ProgramSettingsEntity GetProgramSettings()
+    {
+        return _programSettings ?? new ProgramSettingsEntity();
+    }
+
+    public GameDefaultsEntity GetGameDefaults()
+    {
+        return _gameDefaults ?? new GameDefaultsEntity();
+    }
 
     public GameConfig CreateGameConfigFromDefaults()
     {
         // Load .env file for API keys (secure storage)
         EnvLoader.Load();
 
+        var programSettings = GetProgramSettings();
+        var gameDefaults = GetGameDefaults();
+
+        // Parse enabled providers, auto-enable if API key is present
+        var enabledProviders = ParseEnabledProviders(programSettings.EnabledProviders);
+
+        // Auto-enable providers if API keys are configured
+        var claudeKey = EnvLoader.GetEnv("CLAUDE_API_KEY");
+        var geminiKey = EnvLoader.GetEnv("GEMINI_API_KEY");
+        var openaiKey = EnvLoader.GetEnv("OPENAI_API_KEY");
+
+        if (enabledProviders.Contains(AiProvider.None) || !enabledProviders.Any())
+        {
+            // Auto-detect providers based on available API keys
+            enabledProviders = new List<AiProvider>();
+            if (!string.IsNullOrEmpty(claudeKey)) enabledProviders.Add(AiProvider.Claude);
+            if (!string.IsNullOrEmpty(geminiKey)) enabledProviders.Add(AiProvider.Gemini);
+            if (!string.IsNullOrEmpty(openaiKey)) enabledProviders.Add(AiProvider.OpenAI);
+
+            // Fall back to None (BasicAI) if no API keys
+            if (!enabledProviders.Any()) enabledProviders.Add(AiProvider.None);
+        }
+
         return new GameConfig
         {
-            HumanPlayerCount = _config.Game.DefaultHumanPlayers,
-            AiPlayerCount = _config.Game.DefaultAiPlayers,
-            StartingChips = _config.Game.DefaultStartingChips,
-            SmallBlind = _config.Game.DefaultSmallBlind,
-            BigBlind = _config.Game.DefaultBigBlind,
-            Ante = _config.Game.DefaultAnte,
-            MaxHands = _config.Tournament.MaxHands,
-            IsBlindIncreaseEnabled = _config.Tournament.EnableBlindIncrease,
-            BlindIncreaseInterval = _config.Tournament.BlindIncreaseInterval,
-            BlindIncreaseMultiplier = _config.Tournament.BlindIncreaseMultiplier,
-            HumanPlayerNames = _config.PlayerNames.DefaultHumanNames?.ToList(),
-            UseColors = _config.Game.UseColors,
-            EnableAsciiArt = _config.Game.EnableAsciiArt,
-            UseUnicodeSymbols = _config.Game.UseUnicodeSymbols,
-            EnableLogging = _config.Game.EnableLogging,
-            // AI Provider settings - environment variables take priority over config.json
-            ClaudeApiKey = EnvLoader.GetEnv("CLAUDE_API_KEY") ?? _config.AI.ClaudeApiKey,
-            GeminiApiKey = EnvLoader.GetEnv("GEMINI_API_KEY") ?? _config.AI.GeminiApiKey,
-            OpenAiApiKey = EnvLoader.GetEnv("OPENAI_API_KEY") ?? _config.AI.OpenAiApiKey,
-            EnabledProviders = ParseEnabledProviders(_config.AI.EnabledProviders),
-            // Model names - env vars can override config
-            ClaudeModel = EnvLoader.GetEnv("CLAUDE_MODEL") ?? _config.AI.ClaudeModel,
-            GeminiModel = EnvLoader.GetEnv("GEMINI_MODEL") ?? _config.AI.GeminiModel,
-            OpenAiModel = EnvLoader.GetEnv("OPENAI_MODEL") ?? _config.AI.OpenAiModel
+            // Game defaults
+            HumanPlayerCount = gameDefaults.DefaultHumanPlayers,
+            AiPlayerCount = gameDefaults.DefaultAiPlayers,
+            StartingChips = gameDefaults.DefaultStartingChips,
+            SmallBlind = gameDefaults.DefaultSmallBlind,
+            BigBlind = gameDefaults.DefaultBigBlind,
+            Ante = gameDefaults.DefaultAnte,
+            MaxHands = gameDefaults.MaxHands,
+            IsBlindIncreaseEnabled = gameDefaults.EnableBlindIncrease,
+            BlindIncreaseInterval = gameDefaults.BlindIncreaseInterval,
+            BlindIncreaseMultiplier = gameDefaults.BlindIncreaseMultiplier,
+            AllowRebuys = gameDefaults.AllowRebuys,
+            RebuyAmount = gameDefaults.RebuyAmount,
+
+            // Program settings mapped to GameConfig
+            HumanPlayerNames = programSettings.DefaultHumanNames?.Split(',').Select(n => n.Trim()).ToList(),
+            UseColors = programSettings.UseColors,
+            EnableAsciiArt = programSettings.EnableAsciiArt,
+            UseUnicodeSymbols = programSettings.UseUnicodeSymbols,
+            EnableLogging = true, // Always enabled
+
+            // AI Provider settings - API keys from .env
+            ClaudeApiKey = claudeKey,
+            GeminiApiKey = geminiKey,
+            OpenAiApiKey = openaiKey,
+            EnabledProviders = enabledProviders,
+
+            // Model names from settings
+            ClaudeModel = programSettings.ClaudeModel,
+            GeminiModel = programSettings.GeminiModel,
+            OpenAiModel = programSettings.OpenAiModel
         };
     }
 
-    private List<Game.Enums.AiProvider> ParseEnabledProviders(List<string> providerNames)
+    private List<AiProvider> ParseEnabledProviders(string? providerString)
     {
-        var providers = new List<Game.Enums.AiProvider>();
-        foreach (var name in providerNames)
+        if (string.IsNullOrWhiteSpace(providerString))
+            return new List<AiProvider> { AiProvider.None };
+
+        var providers = new List<AiProvider>();
+        foreach (var name in providerString.Split(',').Select(s => s.Trim()))
         {
-            if (Enum.TryParse<Game.Enums.AiProvider>(name, true, out var provider))
+            if (Enum.TryParse<AiProvider>(name, true, out var provider))
             {
                 providers.Add(provider);
             }
         }
-        return providers.Any() ? providers : [Game.Enums.AiProvider.None];
+        return providers.Any() ? providers : new List<AiProvider> { AiProvider.None };
     }
 
-    private AppConfig LoadConfiguration()
+    public async Task UpdateGameDefaultsAsync(GameConfig gameConfig)
     {
-        try
-        {
-            if (File.Exists(_configFilePath))
-            {
-                var jsonString = File.ReadAllText(_configFilePath);
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    ReadCommentHandling = JsonCommentHandling.Skip,
-                    AllowTrailingCommas = true
-                };
+        var defaults = await _settingsService.GetGameDefaultsAsync();
 
-                var config = JsonSerializer.Deserialize<AppConfig>(jsonString, options);
-                if (config != null)
-                {
-                    Console.WriteLine($"✅ Configuration loaded from {_configFilePath}");
-                    return config;
-                }
-            }
+        defaults.DefaultHumanPlayers = gameConfig.HumanPlayerCount;
+        defaults.DefaultAiPlayers = gameConfig.AiPlayerCount;
+        defaults.DefaultStartingChips = gameConfig.StartingChips;
+        defaults.DefaultSmallBlind = gameConfig.SmallBlind;
+        defaults.DefaultBigBlind = gameConfig.BigBlind;
+        defaults.DefaultAnte = gameConfig.Ante;
+        defaults.MaxHands = gameConfig.MaxHands;
+        defaults.EnableBlindIncrease = gameConfig.IsBlindIncreaseEnabled;
+        defaults.BlindIncreaseInterval = gameConfig.BlindIncreaseInterval;
+        defaults.BlindIncreaseMultiplier = gameConfig.BlindIncreaseMultiplier;
+        defaults.AllowRebuys = gameConfig.AllowRebuys;
+        defaults.RebuyAmount = gameConfig.RebuyAmount;
 
-            Console.WriteLine($"⚠️  Configuration file not found. Creating default configuration at {_configFilePath}");
-            return CreateDefaultConfiguration();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Error loading configuration: {ex.Message}");
-            Console.WriteLine("Using default configuration.");
-            return CreateDefaultConfiguration();
-        }
+        await _settingsService.SaveGameDefaultsAsync(defaults);
+        _gameDefaults = defaults;
+
+        Console.WriteLine("[green]Game defaults saved to database.[/]");
     }
 
-    private AppConfig CreateDefaultConfiguration()
+    public async Task UpdateProgramSettingsAsync(ProgramSettingsEntity settings)
     {
-        var defaultConfig = new AppConfig();
-        SaveConfiguration(defaultConfig);
-        return defaultConfig;
+        await _settingsService.SaveProgramSettingsAsync(settings);
+        _programSettings = settings;
+        Console.WriteLine("[green]Program settings saved to database.[/]");
     }
 
-    public void SaveConfiguration(AppConfig? config = null)
+    public async Task ResetToDefaultsAsync()
     {
-        try
-        {
-            var configToSave = config ?? _config;
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-
-            var jsonString = JsonSerializer.Serialize(configToSave, options);
-            File.WriteAllText(_configFilePath, jsonString);
-            
-            if (config != null)
-            {
-                _config = config;
-            }
-            
-            Console.WriteLine($"✅ Configuration saved to {_configFilePath}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Error saving configuration: {ex.Message}");
-        }
-    }
-
-    public void UpdateGameDefaults(GameConfig gameConfig)
-    {
-        _config.Game.DefaultHumanPlayers = gameConfig.HumanPlayerCount;
-        _config.Game.DefaultAiPlayers = gameConfig.AiPlayerCount;
-        _config.Game.DefaultStartingChips = gameConfig.StartingChips;
-        _config.Game.DefaultSmallBlind = gameConfig.SmallBlind;
-        _config.Game.DefaultBigBlind = gameConfig.BigBlind;
-        _config.Game.DefaultAnte = gameConfig.Ante;
-        _config.Game.UseColors = gameConfig.UseColors;
-        _config.Game.EnableAsciiArt = gameConfig.EnableAsciiArt;
-        _config.Game.UseUnicodeSymbols = gameConfig.UseUnicodeSymbols;
-        _config.Game.EnableLogging = gameConfig.EnableLogging;
-
-        SaveConfiguration();
-    }
-
-    public void ResetToDefaults()
-    {
-        _config = new AppConfig();
-        SaveConfiguration();
-        Console.WriteLine("✅ Configuration reset to defaults");
+        await _settingsService.ResetToDefaultsAsync();
+        _programSettings = await _settingsService.GetProgramSettingsAsync();
+        _gameDefaults = await _settingsService.GetGameDefaultsAsync();
+        Console.WriteLine("[green]All settings reset to defaults.[/]");
     }
 
     public void ShowCurrentConfiguration()
     {
-        Console.WriteLine("\n📋 CURRENT CONFIGURATION:");
-        Console.WriteLine("=========================");
-        
-        Console.WriteLine($"🎮 Game Defaults:");
-        Console.WriteLine($"   Human Players: {_config.Game.DefaultHumanPlayers}");
-        Console.WriteLine($"   AI Players: {_config.Game.DefaultAiPlayers}");
-        Console.WriteLine($"   Starting Chips: €{_config.Game.DefaultStartingChips:N0}");
-        Console.WriteLine($"   Blinds: €{_config.Game.DefaultSmallBlind}/€{_config.Game.DefaultBigBlind}");
-        Console.WriteLine($"   Ante: €{_config.Game.DefaultAnte}");
-        Console.WriteLine($"   Colors: {_config.Game.UseColors}");
-        Console.WriteLine($"   ASCII Art: {_config.Game.EnableAsciiArt}");
-        Console.WriteLine($"   Unicode Symbols: {_config.Game.UseUnicodeSymbols}");
-        Console.WriteLine($"   Logging: {_config.Game.EnableLogging}");
-        
-        Console.WriteLine($"\n🏆 Tournament Settings:");
-        Console.WriteLine($"   Blind Increase: {_config.Tournament.EnableBlindIncrease}");
-        Console.WriteLine($"   Increase Interval: {_config.Tournament.BlindIncreaseInterval} hands");
-        Console.WriteLine($"   Increase Multiplier: {_config.Tournament.BlindIncreaseMultiplier:F1}x");
-        Console.WriteLine($"   Max Hands: {(_config.Tournament.MaxHands == 0 ? "Unlimited" : _config.Tournament.MaxHands.ToString())}");
-        
-        Console.WriteLine($"\n🤖 AI Settings:");
-        Console.WriteLine($"   Thinking Delay: {_config.AI.ThinkingDelayMin}-{_config.AI.ThinkingDelayMax}ms");
-        Console.WriteLine($"   Poker Talk: {_config.AI.EnablePokerTalk} ({_config.AI.PokerTalkFrequency:P0} frequency)");
-        Console.WriteLine($"   Enabled Providers: {string.Join(", ", _config.AI.EnabledProviders)}");
+        var programSettings = GetProgramSettings();
+        var gameDefaults = GetGameDefaults();
 
-        // Check both .env and config.json for API keys
+        Console.WriteLine("\n[bold cyan]CURRENT CONFIGURATION[/]");
+        Console.WriteLine("=".PadRight(50, '='));
+
+        Console.WriteLine("\n[bold yellow]Game Defaults:[/]");
+        Console.WriteLine($"   Human Players: {gameDefaults.DefaultHumanPlayers}");
+        Console.WriteLine($"   AI Players: {gameDefaults.DefaultAiPlayers}");
+        Console.WriteLine($"   Starting Chips: {gameDefaults.DefaultStartingChips:N0}");
+        Console.WriteLine($"   Blinds: {gameDefaults.DefaultSmallBlind}/{gameDefaults.DefaultBigBlind}");
+        Console.WriteLine($"   Ante: {gameDefaults.DefaultAnte}");
+        Console.WriteLine($"   Blind Increase: {(gameDefaults.EnableBlindIncrease ? "Enabled" : "Disabled")}");
+        if (gameDefaults.EnableBlindIncrease)
+        {
+            Console.WriteLine($"     - Interval: Every {gameDefaults.BlindIncreaseInterval} hands");
+            Console.WriteLine($"     - Multiplier: {gameDefaults.BlindIncreaseMultiplier:F1}x");
+        }
+        Console.WriteLine($"   Max Hands: {(gameDefaults.MaxHands == 0 ? "Unlimited" : gameDefaults.MaxHands.ToString())}");
+        Console.WriteLine($"   Allow Rebuys: {(gameDefaults.AllowRebuys ? "Yes" : "No")}");
+
+        Console.WriteLine("\n[bold yellow]Program Settings:[/]");
+        Console.WriteLine($"   Colors: {(programSettings.UseColors ? "Enabled" : "Disabled")}");
+        Console.WriteLine($"   ASCII Art: {(programSettings.EnableAsciiArt ? "Enabled" : "Disabled")}");
+        Console.WriteLine($"   Unicode Symbols: {(programSettings.UseUnicodeSymbols ? "Enabled" : "Disabled")}");
+        Console.WriteLine($"   Clear Screen Between Hands: {(programSettings.ClearScreenBetweenHands ? "Yes" : "No")}");
+        Console.WriteLine($"   Show Hand Rankings: {(programSettings.ShowHandRankings ? "Yes" : "No")}");
+        Console.WriteLine($"   Animation Speed: {programSettings.AnimationSpeed:F1}x");
+        Console.WriteLine($"   Check for Updates: {(programSettings.CheckForUpdatesOnStartup ? "Yes" : "No")}");
+
+        Console.WriteLine("\n[bold yellow]AI Settings:[/]");
+        Console.WriteLine($"   Thinking Delay: {programSettings.ThinkingDelayMin}-{programSettings.ThinkingDelayMax}ms");
+        Console.WriteLine($"   Poker Talk: {(programSettings.EnablePokerTalk ? $"Enabled ({programSettings.PokerTalkFrequency:P0})" : "Disabled")}");
+        Console.WriteLine($"   Funny AI Names: {(programSettings.UseFunnyAiNames ? "Yes" : "No")}");
+        Console.WriteLine($"   Enabled Providers: {programSettings.EnabledProviders}");
+
+        // Check for API keys
         EnvLoader.Load();
-        var claudeKey = EnvLoader.GetEnv("CLAUDE_API_KEY") ?? _config.AI.ClaudeApiKey;
-        var geminiKey = EnvLoader.GetEnv("GEMINI_API_KEY") ?? _config.AI.GeminiApiKey;
-        var openaiKey = EnvLoader.GetEnv("OPENAI_API_KEY") ?? _config.AI.OpenAiApiKey;
+        var claudeKey = EnvLoader.GetEnv("CLAUDE_API_KEY");
+        var geminiKey = EnvLoader.GetEnv("GEMINI_API_KEY");
+        var openaiKey = EnvLoader.GetEnv("OPENAI_API_KEY");
 
-        Console.WriteLine($"   Claude API: {(!string.IsNullOrEmpty(claudeKey) ? $"Configured ({_config.AI.ClaudeModel})" : "Not configured")}");
-        Console.WriteLine($"   Gemini API: {(!string.IsNullOrEmpty(geminiKey) ? $"Configured ({_config.AI.GeminiModel})" : "Not configured")}");
-        Console.WriteLine($"   OpenAI API: {(!string.IsNullOrEmpty(openaiKey) ? $"Configured ({_config.AI.OpenAiModel})" : "Not configured")}");
-        Console.WriteLine($"   (API keys loaded from .env file or config.json)");
-        
-        Console.WriteLine($"\n📁 Logging:");
-        Console.WriteLine($"   Directory: {_config.Logging.LogDirectory}");
-        Console.WriteLine($"   Hand History: {_config.Logging.EnableHandHistory}");
-        Console.WriteLine($"   Action Logging: {_config.Logging.EnableActionLogging}");
-        Console.WriteLine($"   Log Level: {_config.Logging.LogLevel}");
+        Console.WriteLine($"   Claude: {(!string.IsNullOrEmpty(claudeKey) ? $"Configured ({programSettings.ClaudeModel})" : "Not configured")}");
+        Console.WriteLine($"   Gemini: {(!string.IsNullOrEmpty(geminiKey) ? $"Configured ({programSettings.GeminiModel})" : "Not configured")}");
+        Console.WriteLine($"   OpenAI: {(!string.IsNullOrEmpty(openaiKey) ? $"Configured ({programSettings.OpenAiModel})" : "Not configured")}");
+        Console.WriteLine($"   [dim](API keys loaded from .env file)[/]");
+
+        Console.WriteLine($"\n[bold yellow]Logging:[/]");
+        Console.WriteLine($"   Log Level: {programSettings.LogLevel}");
+        Console.WriteLine($"   [dim](Game history stored in SQLite database)[/]");
     }
-}
-
-// Configuration classes
-public class AppConfig
-{
-    public GameDefaults Game { get; set; } = new();
-    public TournamentSettings Tournament { get; set; } = new();
-    public AISettings AI { get; set; } = new();
-    public DisplaySettings Display { get; set; } = new();
-    public LoggingSettings Logging { get; set; } = new();
-    public PlayerNameSettings PlayerNames { get; set; } = new();
-    public UpdateSettings Updates { get; set; } = new();
-}
-
-public class GameDefaults
-{
-    public int DefaultHumanPlayers { get; set; } = 1;
-    public int DefaultAiPlayers { get; set; } = 5;
-    public int DefaultStartingChips { get; set; } = 10000;
-    public int DefaultSmallBlind { get; set; } = 50;
-    public int DefaultBigBlind { get; set; } = 100;
-    public int DefaultAnte { get; set; } = 0;
-    public bool EnableLogging { get; set; } = true;
-    public bool UseColors { get; set; } = true;
-    public bool EnableAsciiArt { get; set; } = true;
-    public bool UseUnicodeSymbols { get; set; } = true;
-}
-
-public class TournamentSettings
-{
-    public bool EnableBlindIncrease { get; set; } = false;
-    public int BlindIncreaseInterval { get; set; } = 10;
-    public double BlindIncreaseMultiplier { get; set; } = 1.5;
-    public int MaxHands { get; set; } = 0;
-}
-
-public class AISettings
-{
-    public int ThinkingDelayMin { get; set; } = 500;
-    public int ThinkingDelayMax { get; set; } = 2000;
-    public bool EnablePokerTalk { get; set; } = true;
-    public double PokerTalkFrequency { get; set; } = 0.2;
-
-    // API Keys for different providers - configure in config.json
-    public string ClaudeApiKey { get; set; } = string.Empty;
-    public string GeminiApiKey { get; set; } = string.Empty;
-    public string OpenAiApiKey { get; set; } = string.Empty;
-
-    // Which AI providers are enabled (players will be distributed among enabled providers)
-    public List<string> EnabledProviders { get; set; } = new() { "None" };
-
-    // Model names for each provider (optional, uses defaults if empty)
-    public string ClaudeModel { get; set; } = "claude-sonnet-4-20250514";
-    public string GeminiModel { get; set; } = "gemini-2.0-flash";
-    public string OpenAiModel { get; set; } = "gpt-4o-mini";
-}
-
-public class DisplaySettings
-{
-    public double AnimationSpeed { get; set; } = 1.0;
-    public bool ShowHandRankings { get; set; } = true;
-    public bool ClearScreenBetweenHands { get; set; } = false;
-}
-
-public class LoggingSettings
-{
-    public string LogDirectory { get; set; } = "logs";
-    public bool EnableHandHistory { get; set; } = true;
-    public bool EnableActionLogging { get; set; } = true;
-    public string LogLevel { get; set; } = "Info";
-}
-
-public class PlayerNameSettings
-{
-    public List<string> DefaultHumanNames { get; set; } = new() { "Player 1", "Player 2", "Player 3" };
-    public bool UseFunnyAiNames { get; set; } = true;
-    public List<string> CustomAiNames { get; set; } = new();
-}
-
-public class UpdateSettings
-{
-    public bool CheckForUpdatesOnStartup { get; set; } = true;
 }
