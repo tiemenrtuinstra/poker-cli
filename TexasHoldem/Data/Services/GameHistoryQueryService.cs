@@ -12,6 +12,61 @@ public class GameHistoryQueryService : IGameHistoryQueryService
         _context = context;
     }
 
+    public async Task<IReadOnlyList<PlayerOverview>> GetAllPlayersWithStatsAsync()
+    {
+        var players = await _context.Players.ToListAsync();
+
+        if (!players.Any())
+            return Array.Empty<PlayerOverview>();
+
+        var result = new List<PlayerOverview>();
+
+        foreach (var player in players)
+        {
+            var participations = await _context.HandParticipants
+                .Include(hp => hp.Hand)
+                .Where(hp => hp.PlayerId == player.Id)
+                .ToListAsync();
+
+            if (!participations.Any())
+            {
+                result.Add(new PlayerOverview
+                {
+                    PlayerName = player.Name,
+                    PlayerType = player.PlayerType,
+                    TotalHands = 0,
+                    HandsWon = 0,
+                    NetChips = 0,
+                    LastPlayed = null
+                });
+                continue;
+            }
+
+            var handIds = participations.Select(p => p.HandId).ToHashSet();
+            var handsWon = await _context.Outcomes
+                .CountAsync(o => o.PlayerId == player.Id && handIds.Contains(o.HandId));
+
+            var totalChipsWon = await _context.Outcomes
+                .Where(o => o.PlayerId == player.Id && handIds.Contains(o.HandId))
+                .SumAsync(o => o.Amount);
+
+            var totalChipsLost = participations.Sum(p => Math.Max(0, p.StartingChips - p.EndingChips));
+            var lastPlayed = participations.Max(p => p.Hand?.StartedAt);
+
+            result.Add(new PlayerOverview
+            {
+                PlayerName = player.Name,
+                PlayerType = player.PlayerType,
+                TotalHands = participations.Count,
+                HandsWon = handsWon,
+                NetChips = totalChipsWon - totalChipsLost,
+                LastPlayed = lastPlayed
+            });
+        }
+
+        return result.OrderByDescending(p => p.TotalHands).ThenBy(p => p.PlayerName).ToList();
+    }
+
     public async Task<PlayerStatistics?> GetPlayerStatisticsAsync(string playerName)
     {
         var player = await _context.Players.FirstOrDefaultAsync(p => p.Name == playerName);

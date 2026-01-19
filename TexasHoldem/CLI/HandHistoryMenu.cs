@@ -73,15 +73,82 @@ public class HandHistoryMenu
         }
     }
 
+    private async Task<string?> SelectPlayerAsync(string title)
+    {
+        var players = await _queryService.GetAllPlayersWithStatsAsync();
+
+        if (!players.Any())
+        {
+            AnsiConsole.MarkupLine("[yellow]No players found in the database.[/]");
+            Console.WriteLine("\nPress any key to continue...");
+            Console.ReadKey();
+            return null;
+        }
+
+        // Build selection choices with stats
+        var choices = new List<string> { "[grey]← Back[/]" };
+
+        foreach (var p in players)
+        {
+            var typeIcon = p.PlayerType switch
+            {
+                "Human" => "👤",
+                "BasicAI" => "🤖",
+                "LlmAI" => "🧠",
+                _ => "❓"
+            };
+
+            var netChipsDisplay = p.NetChips >= 0
+                ? $"[green]+€{p.NetChips:N0}[/]"
+                : $"[red]€{p.NetChips:N0}[/]";
+
+            var winRateDisplay = p.TotalHands > 0
+                ? $"{p.WinRate:P0}"
+                : "-";
+
+            var lastPlayedDisplay = p.LastPlayed.HasValue
+                ? p.LastPlayed.Value.ToString("dd MMM")
+                : "-";
+
+            choices.Add($"{typeIcon} {p.PlayerName,-15} │ {p.TotalHands,4} hands │ Win: {winRateDisplay,4} │ {netChipsDisplay,12} │ {lastPlayedDisplay}");
+        }
+
+        var selection = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title($"[bold yellow]{title}[/]")
+                .PageSize(15)
+                .HighlightStyle(new Style(Color.Black, Color.Yellow))
+                .AddChoices(choices));
+
+        if (selection.Contains("Back"))
+            return null;
+
+        // Extract player name from selection (after icon, before │)
+        var parts = selection.Split('│');
+        if (parts.Length > 0)
+        {
+            // Remove the icon (first 2 chars) and trim
+            var namePart = parts[0].Trim();
+            if (namePart.Length > 2)
+            {
+                return namePart[2..].Trim();
+            }
+        }
+
+        return null;
+    }
+
     private async Task ShowMyStatisticsAsync()
     {
-        var playerName = AnsiConsole.Ask<string>("Enter [green]your player name[/]:");
+        var playerName = await SelectPlayerAsync("Select your player:");
+        if (playerName == null) return;
         await ShowStatisticsForPlayerAsync(playerName);
     }
 
     private async Task ShowPlayerStatisticsAsync()
     {
-        var playerName = AnsiConsole.Ask<string>("Enter [green]player name[/]:");
+        var playerName = await SelectPlayerAsync("Select a player to view statistics:");
+        if (playerName == null) return;
         await ShowStatisticsForPlayerAsync(playerName);
     }
 
@@ -147,7 +214,8 @@ public class HandHistoryMenu
 
     private async Task ShowRecentHandsAsync()
     {
-        var playerName = AnsiConsole.Ask<string>("Enter [green]player name[/]:");
+        var playerName = await SelectPlayerAsync("Select a player to view recent hands:");
+        if (playerName == null) return;
         var count = AnsiConsole.Ask<int>("How many hands to show?", 20);
 
         var hands = await _queryService.GetRecentHandsAsync(playerName, count);
@@ -312,7 +380,8 @@ public class HandHistoryMenu
 
     private async Task ShowOpponentProfileAsync()
     {
-        var opponentName = AnsiConsole.Ask<string>("Enter [green]opponent name[/]:");
+        var opponentName = await SelectPlayerAsync("Select an opponent to view profile:");
+        if (opponentName == null) return;
 
         var profile = await _queryService.GetOpponentProfileAsync(opponentName);
 

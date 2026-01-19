@@ -4,6 +4,9 @@ namespace TexasHoldem.Data.Services;
 
 public interface IGameHistoryQueryService
 {
+    // Player overview
+    Task<IReadOnlyList<PlayerOverview>> GetAllPlayersWithStatsAsync();
+
     // Player statistics
     Task<PlayerStatistics?> GetPlayerStatisticsAsync(string playerName);
     Task<OpponentProfile?> GetOpponentProfileAsync(string opponentName);
@@ -19,6 +22,17 @@ public interface IGameHistoryQueryService
 }
 
 // DTOs for query results
+public record PlayerOverview
+{
+    public required string PlayerName { get; init; }
+    public required string PlayerType { get; init; }
+    public int TotalHands { get; init; }
+    public int HandsWon { get; init; }
+    public double WinRate => TotalHands > 0 ? (double)HandsWon / TotalHands : 0;
+    public int NetChips { get; init; }
+    public DateTime? LastPlayed { get; init; }
+}
+
 public record PlayerStatistics
 {
     public required string PlayerName { get; init; }
