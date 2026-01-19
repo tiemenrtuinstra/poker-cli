@@ -7,6 +7,18 @@ namespace TexasHoldem.CLI;
 /// </summary>
 public static class HeaderHelper
 {
+    // Playing cards decoration - full size
+    private static readonly string CardsArt = string.Join("\n",
+        "[red]┌─────┐ ┌─────┐[/] [blue]┌─────┐ ┌─────┐[/]",
+        "[red]│A    │ │K    │[/] [blue]│Q    │ │J    │[/]",
+        "[red]│  ♥  │ │  ♦  │[/] [blue]│  ♠  │ │  ♣  │[/]",
+        "[red]│    A│ │    K│[/] [blue]│    Q│ │    J│[/]",
+        "[red]└─────┘ └─────┘[/] [blue]└─────┘ └─────┘[/]"
+    );
+
+    // Mini cards for compact headers
+    private static readonly string MiniCardsArt = "[red]♥ ♦[/] [blue]♠ ♣[/]";
+
     /// <summary>
     /// Displays the main "Poker Texas Hold'em" header with playing cards
     /// </summary>
@@ -15,20 +27,12 @@ public static class HeaderHelper
         AnsiConsole.WriteLine();
 
         // Playing cards decoration
-        var cardsArt = string.Join("\n",
-            "[red]┌─────┐ ┌─────┐[/] [blue]┌─────┐ ┌─────┐[/]",
-            "[red]│A    │ │K    │[/] [blue]│Q    │ │J    │[/]",
-            "[red]│  ♥  │ │  ♦  │[/] [blue]│  ♠  │ │  ♣  │[/]",
-            "[red]│    A│ │    K│[/] [blue]│    Q│ │    J│[/]",
-            "[red]└─────┘ └─────┘[/] [blue]└─────┘ └─────┘[/]"
-        );
-
-        AnsiConsole.Write(Align.Center(new Markup(cardsArt)));
+        AnsiConsole.Write(Align.Center(new Markup(CardsArt)));
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
 
-        // Main title - "POKER TEXAS HOLD'EM" in readable ASCII art
-        var titleArt = string.Join("\n",
+        // Main title - "POKER" in big ASCII art
+        var pokerArt = string.Join("\n",
             "[green]██████╗  ██████╗ ██╗  ██╗███████╗██████╗ [/]",
             "[green]██╔══██╗██╔═══██╗██║ ██╔╝██╔════╝██╔══██╗[/]",
             "[green]██████╔╝██║   ██║█████╔╝ █████╗  ██████╔╝[/]",
@@ -37,16 +41,17 @@ public static class HeaderHelper
             "[green]╚═╝      ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝[/]"
         );
 
-        AnsiConsole.Write(Align.Center(new Markup(titleArt)));
+        AnsiConsole.Write(Align.Center(new Markup(pokerArt)));
         AnsiConsole.WriteLine();
 
-        var subtitleArt = string.Join("\n",
-            "[yellow]╔╦╗╔═╗═╗ ╦╔═╗╔═╗  ╦ ╦╔═╗╦  ╔╦╗ ╔═╗╔╦╗[/]",
+        // Subtitle - "TEXAS HOLD'EM" with apostrophe
+        var texasHoldemArt = string.Join("\n",
+            "[yellow]╔╦╗╔═╗═╗ ╦╔═╗╔═╗  ╦ ╦╔═╗╦  ╔╦╗[/][white]'[/][yellow]╔═╗╔╦╗[/]",
             "[yellow] ║ ║╣ ╔╩╦╝╠═╣╚═╗  ╠═╣║ ║║   ║║ ║╣ ║║║[/]",
             "[yellow] ╩ ╚═╝╩ ╚═╩ ╩╚═╝  ╩ ╩╚═╝╩═╝═╩╝ ╚═╝╩ ╩[/]"
         );
 
-        AnsiConsole.Write(Align.Center(new Markup(subtitleArt)));
+        AnsiConsole.Write(Align.Center(new Markup(texasHoldemArt)));
         AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
     }
@@ -56,8 +61,12 @@ public static class HeaderHelper
     /// </summary>
     public static void DisplayCompactHeader()
     {
+        // Mini cards + compact title
+        AnsiConsole.Write(Align.Center(new Markup(MiniCardsArt)));
+        AnsiConsole.WriteLine();
+
         var compactTitle = string.Join("\n",
-            "[green]╔═╗╔═╗╦╔═╔═╗╦═╗[/]  [yellow]╔╦╗╔═╗═╗ ╦╔═╗╔═╗  ╦ ╦╔═╗╦  ╔╦╗ ╔═╗╔╦╗[/]",
+            "[green]╔═╗╔═╗╦╔═╔═╗╦═╗[/]  [yellow]╔╦╗╔═╗═╗ ╦╔═╗╔═╗  ╦ ╦╔═╗╦  ╔╦╗[/][white]'[/][yellow]╔═╗╔╦╗[/]",
             "[green]╠═╝║ ║╠╩╗║╣ ╠╦╝[/]  [yellow] ║ ║╣ ╔╩╦╝╠═╣╚═╗  ╠═╣║ ║║   ║║ ║╣ ║║║[/]",
             "[green]╩  ╚═╝╩ ╩╚═╝╩╚═[/]  [yellow] ╩ ╚═╝╩ ╚═╩ ╩╚═╝  ╩ ╩╚═╝╩═╝═╩╝ ╚═╝╩ ╩[/]"
         );
@@ -71,7 +80,18 @@ public static class HeaderHelper
     /// </summary>
     public static void DisplaySubHeader(string subSection, Color color)
     {
-        DisplayCompactHeader();
+        // Mini cards + compact title
+        AnsiConsole.Write(Align.Center(new Markup(MiniCardsArt)));
+        AnsiConsole.WriteLine();
+
+        var compactTitle = string.Join("\n",
+            "[green]╔═╗╔═╗╦╔═╔═╗╦═╗[/]  [yellow]╔╦╗╔═╗═╗ ╦╔═╗╔═╗  ╦ ╦╔═╗╦  ╔╦╗[/][white]'[/][yellow]╔═╗╔╦╗[/]",
+            "[green]╠═╝║ ║╠╩╗║╣ ╠╦╝[/]  [yellow] ║ ║╣ ╔╩╦╝╠═╣╚═╗  ╠═╣║ ║║   ║║ ║╣ ║║║[/]",
+            "[green]╩  ╚═╝╩ ╩╚═╝╩╚═[/]  [yellow] ╩ ╚═╝╩ ╚═╩ ╩╚═╝  ╩ ╩╚═╝╩═╝═╩╝ ╚═╝╩ ╩[/]"
+        );
+
+        AnsiConsole.Write(Align.Center(new Markup(compactTitle)));
+        AnsiConsole.WriteLine();
         AnsiConsole.WriteLine();
 
         var subHeader = new FigletText(subSection)
