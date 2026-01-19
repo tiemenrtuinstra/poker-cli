@@ -117,24 +117,22 @@ public record Card(Suit Suit, Rank Rank) : IComparable<Card>
         // Handle 10 specially since it's 2 characters
         if (rank == "10")
         {
-            return new[]
-            {
+            return [
                 "┌─────┐",
                 $"│10   │",
                 $"│  {suit}  │",
                 $"│   10│",
                 "└─────┘"
-            };
+            ];
         }
 
-        return new[]
-        {
+        return [
             "┌─────┐",
             $"│{rank}    │",
             $"│  {suit}  │",
             $"│    {rank}│",
             "└─────┘"
-        };
+        ];
     }
 
     /// <summary>
@@ -169,32 +167,26 @@ public record Card(Suit Suit, Rank Rank) : IComparable<Card>
     /// <summary>
     /// Returns ASCII art for a face-down card
     /// </summary>
-    public static string[] GetHiddenCardAscii()
-    {
-        return new[]
-        {
-            "┌─────┐",
-            "│░░░░░│",
-            "│░░░░░│",
-            "│░░░░░│",
-            "└─────┘"
-        };
-    }
+    public static string[] GetHiddenCardAscii() =>
+    [
+        "┌─────┐",
+        "│░░░░░│",
+        "│░░░░░│",
+        "│░░░░░│",
+        "└─────┘"
+    ];
 
     /// <summary>
     /// Returns ASCII art for an empty card slot
     /// </summary>
-    public static string[] GetEmptySlotAscii()
-    {
-        return new[]
-        {
-            "┌─────┐",
-            "│     │",
-            "│     │",
-            "│     │",
-            "└─────┘"
-        };
-    }
+    public static string[] GetEmptySlotAscii() =>
+    [
+        "┌─────┐",
+        "│     │",
+        "│     │",
+        "│     │",
+        "└─────┘"
+    ];
 
     /// <summary>
     /// Combines multiple cards into a single string array for horizontal display

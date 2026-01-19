@@ -7,13 +7,15 @@ namespace TexasHoldem.Players;
 /// <summary>
 /// Abstract base class for LLM-powered AI poker players.
 /// Provides common functionality for Claude, Gemini, and OpenAI implementations.
+/// Implements IDisposable to properly dispose of HttpClient resources.
 /// </summary>
-public abstract class LlmAiPlayer : BasicAiPlayer
+public abstract class LlmAiPlayer : BasicAiPlayer, IDisposable
 {
     protected readonly string _apiKey;
     protected readonly string _modelName;
     protected readonly bool _isLlmEnabled;
     protected readonly HttpClient _httpClient;
+    private bool _disposed;
 
     public AiProvider Provider { get; }
 
@@ -31,7 +33,34 @@ public abstract class LlmAiPlayer : BasicAiPlayer
         _apiKey = apiKey ?? string.Empty;
         _modelName = modelName;
         _isLlmEnabled = !string.IsNullOrEmpty(_apiKey);
-        _httpClient = new HttpClient();
+        _httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+    }
+
+    /// <summary>
+    /// Disposes of the HttpClient and other managed resources.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+            }
+            _disposed = true;
+        }
+    }
+
+    /// <summary>
+    /// Disposes of the HttpClient to prevent socket exhaustion.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     public override PlayerAction TakeTurn(GameState gameState)
@@ -277,11 +306,11 @@ Make your decision:";
 }
 
 /// <summary>
-/// DTO for LLM response parsing
+/// Record for LLM response parsing - immutable data transfer object
 /// </summary>
-public class LlmDecision
+public record LlmDecision
 {
-    public string Action { get; set; } = "check";
-    public int Amount { get; set; } = 0;
-    public string? Reasoning { get; set; }
+    public string Action { get; init; } = "check";
+    public int Amount { get; init; } = 0;
+    public string? Reasoning { get; init; }
 }

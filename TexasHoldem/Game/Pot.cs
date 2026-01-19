@@ -69,14 +69,24 @@ public class Pot
             if (eligiblePlayers.Count > 1)
             {
                 var sidePotAmount = sidePotContribution * eligiblePlayers.Count;
-                
+
                 _sidePots.Add(new SidePot
                 {
                     Amount = sidePotAmount,
                     EligiblePlayers = eligiblePlayers
                 });
 
-                _mainPot -= sidePotAmount;
+                // Ensure main pot doesn't go negative
+                if (_mainPot >= sidePotAmount)
+                {
+                    _mainPot -= sidePotAmount;
+                }
+                else
+                {
+                    // Log warning and set to 0 instead of negative
+                    Console.WriteLine($"Warning: Side pot calculation resulted in negative main pot. Resetting to 0.");
+                    _mainPot = 0;
+                }
             }
 
             previousAmount = allInAmount;
@@ -107,7 +117,7 @@ public class Pot
                     Amount = winAmount,
                     PotType = "Side Pot",
                     HandDescription = getHandResult(sidePotWinners[i]).Description
-                });
+                } );
             }
         }
 
@@ -173,7 +183,7 @@ public class Pot
             {
                 Amount = sp.Amount,
                 EligiblePlayersCount = sp.EligiblePlayers.Count,
-                EligiblePlayerNames = sp.EligiblePlayers.ToList()
+                EligiblePlayerNames = sp.EligiblePlayers
             }).ToList()
         };
     }
@@ -188,25 +198,34 @@ public class Pot
     }
 }
 
-public class PotWinner
+/// <summary>
+/// Record representing a pot winner - immutable data transfer object
+/// </summary>
+public record PotWinner
 {
-    public IPlayer Player { get; set; } = null!;
-    public int Amount { get; set; }
-    public string PotType { get; set; } = string.Empty;
-    public string HandDescription { get; set; } = string.Empty;
+    public required IPlayer Player { get; init; }
+    public required int Amount { get; init; }
+    public required string PotType { get; init; }
+    public required string HandDescription { get; init; }
 }
 
-public class PotSummary
+/// <summary>
+/// Record representing pot summary - immutable data transfer object
+/// </summary>
+public record PotSummary
 {
-    public int MainPot { get; set; }
-    public int SidePotsCount { get; set; }
-    public int TotalAmount { get; set; }
-    public List<SidePotSummary> SidePotDetails { get; set; } = new();
+    public required int MainPot { get; init; }
+    public required int SidePotsCount { get; init; }
+    public required int TotalAmount { get; init; }
+    public IReadOnlyList<SidePotSummary> SidePotDetails { get; init; } = [];
 }
 
-public class SidePotSummary
+/// <summary>
+/// Record representing side pot summary - immutable data transfer object
+/// </summary>
+public record SidePotSummary
 {
-    public int Amount { get; set; }
-    public int EligiblePlayersCount { get; set; }
-    public List<string> EligiblePlayerNames { get; set; } = new();
+    public required int Amount { get; init; }
+    public required int EligiblePlayersCount { get; init; }
+    public IReadOnlyList<string> EligiblePlayerNames { get; init; } = [];
 }

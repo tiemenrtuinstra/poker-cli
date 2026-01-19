@@ -165,11 +165,12 @@ public class PokerClient : IDisposable
                     return true;
                 }
             }
-            catch
+            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or HttpRequestException or InvalidOperationException)
             {
-                // Wait before retry with exponential backoff
+                // Expected network errors - log and retry with exponential backoff
+                Console.WriteLine($"Reconnection attempt {attempt}/{_reconnectMaxAttempts} failed: {ex.GetType().Name}");
                 var delay = Math.Min(1000 * (int)Math.Pow(2, attempt - 1), 30000);
-                await Task.Delay(delay, ct);
+                await Task.Delay(delay, ct).ConfigureAwait(false);
             }
         }
 

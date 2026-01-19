@@ -19,6 +19,11 @@ public class PokerServer : IDisposable
     private bool _disposed;
     private string? _startupError;
 
+    /// <summary>
+    /// Maximum allowed message size in bytes (1MB) to prevent DoS attacks
+    /// </summary>
+    private const int MaxMessageSize = 1024 * 1024;
+
     public event Action<string, INetworkMessage>? OnMessageReceived;
     public event Action<ClientConnection>? OnClientConnected;
     public event Action<ClientConnection>? OnClientDisconnected;
@@ -241,14 +246,23 @@ public class PokerServer : IDisposable
     {
         var buffer = new byte[8192];
         var messageBuilder = new StringBuilder();
+        var totalBytesReceived = 0;
 
         WebSocketReceiveResult result;
         do
         {
-            result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+            result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
 
             if (result.MessageType == WebSocketMessageType.Close)
                 return null;
+
+            totalBytesReceived += result.Count;
+
+            // Prevent DoS attacks by limiting message size
+            if (totalBytesReceived > MaxMessageSize)
+            {
+                throw new InvalidOperationException($"Message size exceeds maximum allowed size of {MaxMessageSize} bytes");
+            }
 
             messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
         }
@@ -263,44 +277,58 @@ public class PokerServer : IDisposable
 
         while (!ct.IsCancellationRequested)
         {
-            await Task.Delay(10000, ct); // Check every 10 seconds
-
-            var now = DateTime.UtcNow;
-            var timedOutClients = _clients.Values
-                .Where(c => now - c.LastHeartbeat > heartbeatTimeout)
-                .ToList();
-
-            foreach (var client in timedOutClients)
+            try
             {
-                Console.WriteLine($"Client {client.PlayerName} timed out");
-                await DisconnectClientAsync(client.Id, "Heartbeat timeout");
+                await Task.Delay(10000, ct).ConfigureAwait(false); // Check every 10 seconds
+
+                var now = DateTime.UtcNow;
+
+                // Create a snapshot of client IDs to avoid race conditions
+                // when the collection is modified during iteration
+                var clientIds = _clients.Keys.ToList();
+
+                foreach (var clientId in clientIds)
+                {
+                    // Re-fetch client from dictionary to handle concurrent removals
+                    if (_clients.TryGetValue(clientId, out var client) &&
+                        now - client.LastHeartbeat > heartbeatTimeout)
+                    {
+                        Console.WriteLine($"Client {client.PlayerName} timed out");
+                        await DisconnectClientAsync(clientId, "Heartbeat timeout").ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when server is stopping
+                break;
             }
         }
     }
 
-    public async Task BroadcastAsync(INetworkMessage message, string? excludeClientId = null)
+    public async Task BroadcastAsync(INetworkMessage message, string? excludeClientId = null, CancellationToken ct = default)
     {
         var tasks = _clients.Values
             .Where(c => c.Id != excludeClientId && c.State == ConnectionState.Connected)
-            .Select(c => c.SendAsync(message));
+            .Select(c => c.SendAsync(message, ct));
 
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    public async Task BroadcastToLobbyAsync(string lobbyId, INetworkMessage message, string? excludeClientId = null)
+    public async Task BroadcastToLobbyAsync(string lobbyId, INetworkMessage message, string? excludeClientId = null, CancellationToken ct = default)
     {
         var tasks = _clients.Values
             .Where(c => c.CurrentLobbyId == lobbyId && c.Id != excludeClientId && c.State == ConnectionState.Connected)
-            .Select(c => c.SendAsync(message));
+            .Select(c => c.SendAsync(message, ct));
 
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    public async Task SendToClientAsync(string clientId, INetworkMessage message)
+    public async Task SendToClientAsync(string clientId, INetworkMessage message, CancellationToken ct = default)
     {
         if (_clients.TryGetValue(clientId, out var client))
         {
-            await client.SendAsync(message);
+            await client.SendAsync(message, ct).ConfigureAwait(false);
         }
     }
 

@@ -347,10 +347,13 @@ public class HandEvaluator
     }
 }
 
-public class HandResult
+/// <summary>
+/// Record representing the result of a hand evaluation - immutable data transfer object
+/// </summary>
+public record HandResult
 {
-    public HandStrength Strength { get; set; }
-    public List<Card> Cards { get; set; } = new();
-    public long Score { get; set; }
+    public HandStrength Strength { get; init; }
+    public IReadOnlyList<Card> Cards { get; init; } = [];
+    public long Score { get; init; }
     public string Description => HandEvaluator.GetHandDescription(this);
 }

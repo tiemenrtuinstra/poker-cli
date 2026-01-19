@@ -7,34 +7,34 @@ namespace TexasHoldem.CLI;
 public class Logger
 {
     private readonly string _logDirectory;
-    private readonly string _gameLogFile;
-    private readonly string _handHistoryFile;
+    private readonly string? _gameLogFile;
+    private readonly string? _handHistoryFile;
     private readonly bool _isEnabled;
-    private readonly object _lockObject = new object();
+    private readonly object _lockObject = new();
 
     public Logger(bool isEnabled = true, string? logDirectory = null)
     {
         _isEnabled = isEnabled;
         _logDirectory = logDirectory ?? Path.Combine(Environment.CurrentDirectory, "logs");
-        
+
         if (_isEnabled)
         {
             Directory.CreateDirectory(_logDirectory);
-            
+
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             _gameLogFile = Path.Combine(_logDirectory, $"game_{timestamp}.log");
             _handHistoryFile = Path.Combine(_logDirectory, $"hands_{timestamp}.json");
-            
+
             LogInfo("=== TEXAS HOLD'EM POKER GAME STARTED ===");
         }
     }
 
     public void LogInfo(string message)
     {
-        if (!_isEnabled) return;
-        
+        if (!_isEnabled || _gameLogFile is null) return;
+
         var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [INFO] {message}";
-        
+
         lock (_lockObject)
         {
             Console.WriteLine($"📝 {message}");
@@ -44,10 +44,10 @@ public class Logger
 
     public void LogWarning(string message)
     {
-        if (!_isEnabled) return;
-        
+        if (!_isEnabled || _gameLogFile is null) return;
+
         var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [WARN] {message}";
-        
+
         lock (_lockObject)
         {
             Console.WriteLine($"⚠️  {message}");
@@ -57,14 +57,14 @@ public class Logger
 
     public void LogError(string message, Exception? exception = null)
     {
-        if (!_isEnabled) return;
-        
+        if (!_isEnabled || _gameLogFile is null) return;
+
         var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ERROR] {message}";
         if (exception != null)
         {
             logEntry += $" | Exception: {exception.Message}";
         }
-        
+
         lock (_lockObject)
         {
             Console.WriteLine($"❌ {message}");
@@ -74,13 +74,13 @@ public class Logger
 
     public void LogPlayerAction(string playerName, ActionType action, int amount, BettingPhase phase)
     {
-        if (!_isEnabled) return;
-        
+        if (!_isEnabled || _gameLogFile is null) return;
+
         var amountStr = amount > 0 ? $" €{amount}" : "";
         var message = $"{playerName} {action}{amountStr} during {phase}";
-        
+
         var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ACTION] {message}";
-        
+
         lock (_lockObject)
         {
             File.AppendAllText(_gameLogFile, logEntry + Environment.NewLine);
@@ -118,20 +118,20 @@ public class Logger
 
     public void SaveHandHistory(HandRecord handRecord)
     {
-        if (!_isEnabled) return;
-        
+        if (!_isEnabled || _handHistoryFile is null) return;
+
         try
         {
             lock (_lockObject)
             {
-                var jsonOptions = new JsonSerializerOptions 
-                { 
+                var jsonOptions = new JsonSerializerOptions
+                {
                     WriteIndented = true,
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 };
-                
+
                 var json = JsonSerializer.Serialize(handRecord, jsonOptions);
-                
+
                 // Append to hand history file
                 var handEntry = json + Environment.NewLine + "---" + Environment.NewLine;
                 File.AppendAllText(_handHistoryFile, handEntry);
@@ -212,8 +212,8 @@ public class Logger
     public List<string> GetAvailableLogFiles()
     {
         if (!_isEnabled || !Directory.Exists(_logDirectory))
-            return new List<string>();
-        
+            return [];
+
         return Directory.GetFiles(_logDirectory, "*.log")
             .Select(Path.GetFileName)
             .Where(name => name != null)
@@ -224,8 +224,8 @@ public class Logger
     public List<string> GetAvailableHandHistoryFiles()
     {
         if (!_isEnabled || !Directory.Exists(_logDirectory))
-            return new List<string>();
-        
+            return [];
+
         return Directory.GetFiles(_logDirectory, "hands_*.json")
             .Select(Path.GetFileName)
             .Where(name => name != null)

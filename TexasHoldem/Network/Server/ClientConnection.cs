@@ -13,6 +13,11 @@ public enum ConnectionState
 
 public class ClientConnection : IDisposable
 {
+    /// <summary>
+    /// Maximum allowed message size in bytes (1MB) to prevent DoS attacks
+    /// </summary>
+    private const int MaxMessageSize = 1024 * 1024;
+
     public string Id { get; }
     public string PlayerName { get; set; }
     public WebSocket Socket { get; }
@@ -39,7 +44,7 @@ public class ClientConnection : IDisposable
         if (_disposed || Socket.State != WebSocketState.Open)
             return;
 
-        await _sendLock.WaitAsync(ct);
+        await _sendLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             var json = MessageSerializer.Serialize(message);
@@ -48,7 +53,7 @@ public class ClientConnection : IDisposable
                 new ArraySegment<byte>(bytes),
                 WebSocketMessageType.Text,
                 true,
-                ct);
+                ct).ConfigureAwait(false);
         }
         finally
         {
@@ -63,18 +68,27 @@ public class ClientConnection : IDisposable
 
         var buffer = new byte[8192];
         var messageBuilder = new StringBuilder();
+        var totalBytesReceived = 0;
 
         try
         {
             WebSocketReceiveResult result;
             do
             {
-                result = await Socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+                result = await Socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     State = ConnectionState.Disconnected;
                     return null;
+                }
+
+                totalBytesReceived += result.Count;
+
+                // Prevent DoS attacks by limiting message size
+                if (totalBytesReceived > MaxMessageSize)
+                {
+                    throw new InvalidOperationException($"Message size exceeds maximum allowed size of {MaxMessageSize} bytes");
                 }
 
                 messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));

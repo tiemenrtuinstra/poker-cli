@@ -9,7 +9,8 @@ namespace TexasHoldem.Players;
 /// </summary>
 public class GeminiAiPlayer : LlmAiPlayer
 {
-    private const string ApiUrlTemplate = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+    // API key is now passed via header instead of URL query parameter for security
+    private const string ApiUrlTemplate = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent";
 
     public GeminiAiPlayer(
         string name,
@@ -24,7 +25,7 @@ public class GeminiAiPlayer : LlmAiPlayer
 
     protected override async Task<string> CallLlmApiAsync(string prompt)
     {
-        var apiUrl = string.Format(ApiUrlTemplate, _modelName, _apiKey);
+        var apiUrl = string.Format(ApiUrlTemplate, _modelName);
 
         var requestBody = new
         {
@@ -48,8 +49,13 @@ public class GeminiAiPlayer : LlmAiPlayer
         var json = JsonSerializer.Serialize(requestBody);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync(apiUrl, content);
-        var responseString = await response.Content.ReadAsStringAsync();
+        // Use x-goog-api-key header instead of URL query parameter for security
+        using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+        request.Content = content;
+        request.Headers.Add("x-goog-api-key", _apiKey);
+
+        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {

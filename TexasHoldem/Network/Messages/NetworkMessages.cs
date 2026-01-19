@@ -258,6 +258,16 @@ public class ErrorMessage : NetworkMessage
 
 public class LobbySettings
 {
+    // Validation constants
+    public const int MinPlayers = 2;
+    public const int MaxPlayersLimit = 10;
+    public const int MaxNameLength = 50;
+    public const int MinStartingChips = 100;
+    public const int MaxStartingChips = 10_000_000;
+    public const int MinBlind = 1;
+    public const int MaxBlind = 1_000_000;
+    public const int MaxAiPlayers = 7;
+
     public string Name { get; set; } = "Poker Game";
     public int MaxPlayers { get; set; } = 8;
     public bool IsPublic { get; set; } = true;
@@ -267,7 +277,107 @@ public class LobbySettings
     public int BigBlind { get; set; } = 100;
     public int Ante { get; set; } = 0;
     public int AiPlayerCount { get; set; } = 0;
-    public List<string> EnabledAiProviders { get; set; } = new();
+    public List<string> EnabledAiProviders { get; set; } = [];
+
+    /// <summary>
+    /// Validates the lobby settings and returns a list of validation errors.
+    /// Returns an empty list if all settings are valid.
+    /// </summary>
+    public List<string> Validate()
+    {
+        var errors = new List<string>();
+
+        // Name validation
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            errors.Add("Lobby name cannot be empty.");
+        }
+        else if (Name.Length > MaxNameLength)
+        {
+            errors.Add($"Lobby name cannot exceed {MaxNameLength} characters.");
+        }
+
+        // Player count validation
+        if (MaxPlayers < MinPlayers)
+        {
+            errors.Add($"Maximum players must be at least {MinPlayers}.");
+        }
+        else if (MaxPlayers > MaxPlayersLimit)
+        {
+            errors.Add($"Maximum players cannot exceed {MaxPlayersLimit}.");
+        }
+
+        // Starting chips validation
+        if (StartingChips < MinStartingChips)
+        {
+            errors.Add($"Starting chips must be at least {MinStartingChips}.");
+        }
+        else if (StartingChips > MaxStartingChips)
+        {
+            errors.Add($"Starting chips cannot exceed {MaxStartingChips:N0}.");
+        }
+
+        // Blind validation
+        if (SmallBlind < MinBlind)
+        {
+            errors.Add($"Small blind must be at least {MinBlind}.");
+        }
+        else if (SmallBlind > MaxBlind)
+        {
+            errors.Add($"Small blind cannot exceed {MaxBlind:N0}.");
+        }
+
+        if (BigBlind < MinBlind)
+        {
+            errors.Add($"Big blind must be at least {MinBlind}.");
+        }
+        else if (BigBlind > MaxBlind)
+        {
+            errors.Add($"Big blind cannot exceed {MaxBlind:N0}.");
+        }
+
+        if (SmallBlind >= BigBlind)
+        {
+            errors.Add("Small blind must be less than big blind.");
+        }
+
+        if (BigBlind > StartingChips / 2)
+        {
+            errors.Add("Big blind cannot be more than half the starting chips.");
+        }
+
+        // Ante validation
+        if (Ante < 0)
+        {
+            errors.Add("Ante cannot be negative.");
+        }
+        else if (Ante > BigBlind)
+        {
+            errors.Add("Ante cannot exceed the big blind.");
+        }
+
+        // AI player count validation
+        if (AiPlayerCount < 0)
+        {
+            errors.Add("AI player count cannot be negative.");
+        }
+        else if (AiPlayerCount > MaxAiPlayers)
+        {
+            errors.Add($"AI player count cannot exceed {MaxAiPlayers}.");
+        }
+
+        if (AiPlayerCount >= MaxPlayers)
+        {
+            errors.Add("AI player count must be less than maximum players (need at least 1 human player).");
+        }
+
+        return errors;
+    }
+
+    /// <summary>
+    /// Returns true if all settings are valid.
+    /// </summary>
+    public bool IsValid() => Validate().Count == 0;
 }
 
 public class LobbyInfo

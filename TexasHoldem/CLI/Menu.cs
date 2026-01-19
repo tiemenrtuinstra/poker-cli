@@ -653,17 +653,17 @@ public class Menu
         };
     }
 
-    private GameConfig LoadFromConfiguration()
+    private GameConfig? LoadFromConfiguration()
     {
         _inputHelper.ClearScreen();
         Console.WriteLine("🔧 LOADING FROM CONFIGURATION");
         Console.WriteLine("==============================");
-        
+
         var config = _configManager.CreateGameConfigFromDefaults();
-        
+
         Console.WriteLine("✅ Configuration loaded successfully!");
         _configManager.ShowCurrentConfiguration();
-        
+
         var choice = _inputHelper.GetChoiceInput("\nWould you like to:", new Dictionary<string, string>
         {
             {"Use these settings", "use"},
@@ -674,7 +674,7 @@ public class Menu
         return choice switch
         {
             "use" => config,
-            "modify" => ConfigureNewGameFromTemplate(config)!,
+            "modify" => ConfigureNewGameFromTemplate(config),
             "back" => null,
             _ => null
         };

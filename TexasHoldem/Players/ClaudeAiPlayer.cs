@@ -43,8 +43,8 @@ public class ClaudeAiPlayer : LlmAiPlayer
         _httpClient.DefaultRequestHeaders.Add("x-api-key", _apiKey);
         _httpClient.DefaultRequestHeaders.Add("anthropic-version", ApiVersion);
 
-        var response = await _httpClient.PostAsync(ApiUrl, content);
-        var responseString = await response.Content.ReadAsStringAsync();
+        var response = await _httpClient.PostAsync(ApiUrl, content).ConfigureAwait(false);
+        var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {

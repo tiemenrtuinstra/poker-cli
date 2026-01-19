@@ -136,18 +136,24 @@ public class GameState
     }
 }
 
-public class PlayerAction
+/// <summary>
+/// Record representing a player action - immutable data transfer object
+/// </summary>
+public record PlayerAction
 {
-    public string PlayerId { get; set; } = string.Empty;
-    public ActionType Action { get; set; }
-    public int Amount { get; set; }
-    public DateTime Timestamp { get; set; }
-    public BettingPhase BettingPhase { get; set; }
+    public required string PlayerId { get; init; }
+    public required ActionType Action { get; init; }
+    public int Amount { get; init; }
+    public DateTime Timestamp { get; init; } = DateTime.Now;
+    public required BettingPhase BettingPhase { get; init; }
 }
 
+/// <summary>
+/// Record representing a side pot - mutable for pot management
+/// </summary>
 public class SidePot
 {
     public int Amount { get; set; }
-    public List<string> EligiblePlayers { get; set; } = new();
+    public List<string> EligiblePlayers { get; set; } = [];
     public string? Winner { get; set; }
 }

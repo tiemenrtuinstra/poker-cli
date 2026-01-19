@@ -46,8 +46,8 @@ public class OpenAiPlayer : LlmAiPlayer
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
 
-        var response = await _httpClient.PostAsync(ApiUrl, content);
-        var responseString = await response.Content.ReadAsStringAsync();
+        var response = await _httpClient.PostAsync(ApiUrl, content).ConfigureAwait(false);
+        var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
