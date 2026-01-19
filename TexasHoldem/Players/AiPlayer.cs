@@ -28,7 +28,7 @@ public abstract class AiPlayer : IPlayer
         _random = random ?? new Random();
     }
 
-    public abstract PlayerAction TakeTurn(GameState gameState);
+    public abstract Task<PlayerAction> TakeTurnAsync(GameState gameState);
 
     public virtual void ReceiveCards(List<Card> cards)
     {

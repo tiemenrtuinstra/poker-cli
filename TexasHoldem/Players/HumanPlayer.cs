@@ -26,7 +26,7 @@ public class HumanPlayer : IPlayer
         _gameUI = gameUI ?? new SpectreGameUI();
     }
 
-    public PlayerAction TakeTurn(GameState gameState)
+    public Task<PlayerAction> TakeTurnAsync(GameState gameState)
     {
         // Clear screen for privacy when multiple humans play
         AnsiConsole.Clear();
@@ -102,14 +102,14 @@ public class HumanPlayer : IPlayer
             amount = Chips;
         }
 
-        return new PlayerAction
+        return Task.FromResult(new PlayerAction
         {
             PlayerId = Name,
             Action = selectedAction,
             Amount = amount,
             Timestamp = DateTime.Now,
             BettingPhase = gameState.BettingPhase
-        };
+        });
     }
 
     private List<ActionType> GetValidActions(GameState gameState)

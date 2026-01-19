@@ -10,21 +10,21 @@ public class BasicAiPlayer : AiPlayer
     {
     }
 
-    public override PlayerAction TakeTurn(GameState gameState)
+    public override async Task<PlayerAction> TakeTurnAsync(GameState gameState)
     {
         // Add some thinking delay for realism
-        Thread.Sleep(_random.Next(500, 2000));
-        
+        await Task.Delay(_random.Next(500, 2000));
+
         UpdateOpponentStats(gameState);
-        
+
         var action = AiPersonality.MakeDecision(this, gameState, Personality!.Value, _random);
-        
+
         // Add some poker talk occasionally
         if (_random.NextDouble() < 0.2) // 20% chance
         {
             ShowPokerTalk(action, gameState);
         }
-        
+
         return action;
     }
 

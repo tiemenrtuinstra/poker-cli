@@ -337,7 +337,7 @@ public class NetworkGameManager
             }
             else
             {
-                action = player.TakeTurn(_gameState);
+                action = await player.TakeTurnAsync(_gameState);
             }
 
             await ProcessActionAsync(player, action);
@@ -401,8 +401,8 @@ public class NetworkGameManager
         var request = player.CreateActionRequest(_gameState);
         await player.Connection.SendAsync(request);
 
-        // Wait for action (blocking with timeout handled in NetworkPlayer)
-        return player.TakeTurn(_gameState);
+        // Wait for action (async with timeout handled in NetworkPlayer)
+        return await player.TakeTurnAsync(_gameState);
     }
 
     /// <summary>

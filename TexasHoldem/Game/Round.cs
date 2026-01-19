@@ -247,7 +247,7 @@ public class Round
             try
             {
                 _gameState.CurrentPlayerPosition = currentPlayerPos;
-                var action = currentPlayer.TakeTurn(_gameState);
+                var action = await currentPlayer.TakeTurnAsync(_gameState);
 
                 // Validate action - if invalid, explain why and use fallback
                 if (!BettingLogic.IsValidAction(currentPlayer, action.Action, action.Amount, _gameState))

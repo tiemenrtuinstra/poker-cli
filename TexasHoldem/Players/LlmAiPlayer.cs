@@ -63,14 +63,13 @@ public abstract class LlmAiPlayer : BasicAiPlayer, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public override PlayerAction TakeTurn(GameState gameState)
+    public override async Task<PlayerAction> TakeTurnAsync(GameState gameState)
     {
         if (_isLlmEnabled)
         {
             try
             {
-                // Use async in sync context - not ideal but works for CLI
-                return MakeLlmDecisionAsync(gameState).GetAwaiter().GetResult();
+                return await MakeLlmDecisionAsync(gameState);
             }
             catch (Exception ex)
             {
@@ -79,14 +78,14 @@ public abstract class LlmAiPlayer : BasicAiPlayer, IDisposable
             }
         }
 
-        return base.TakeTurn(gameState);
+        return await base.TakeTurnAsync(gameState);
     }
 
     protected async Task<PlayerAction> MakeLlmDecisionAsync(GameState gameState)
     {
         var prompt = BuildPrompt(gameState);
         var response = await CallLlmApiAsync(prompt);
-        return ParseLlmResponse(response, gameState);
+        return await ParseLlmResponseAsync(response, gameState);
     }
 
     /// <summary>
@@ -200,7 +199,7 @@ Make your decision:";
         return string.Join("\n", actions);
     }
 
-    protected PlayerAction ParseLlmResponse(string response, GameState gameState)
+    protected async Task<PlayerAction> ParseLlmResponseAsync(string response, GameState gameState)
     {
         try
         {
@@ -242,7 +241,7 @@ Make your decision:";
         }
 
         // Fall back to basic AI decision
-        return base.TakeTurn(gameState);
+        return await base.TakeTurnAsync(gameState);
     }
 
     private ActionType ParseActionType(string action)

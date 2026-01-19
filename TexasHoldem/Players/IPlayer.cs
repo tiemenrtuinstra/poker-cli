@@ -13,7 +13,7 @@ public interface IPlayer
     bool HasFolded { get; set; }
     PersonalityType? Personality { get; }
 
-    PlayerAction TakeTurn(GameState gameState);
+    Task<PlayerAction> TakeTurnAsync(GameState gameState);
     void ReceiveCards(List<Card> cards);
     void AddChips(int amount);
     bool RemoveChips(int amount);

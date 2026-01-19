@@ -55,12 +55,12 @@ public class NetworkPlayer : IPlayer
         IsBotControlled = false;
     }
 
-    public PlayerAction TakeTurn(GameState gameState)
+    public async Task<PlayerAction> TakeTurnAsync(GameState gameState)
     {
         // If bot controlled, use basic AI logic
         if (IsBotControlled)
         {
-            return MakeBotDecision(gameState);
+            return await MakeBotDecisionAsync(gameState);
         }
 
         // Clear any pending action
@@ -75,8 +75,8 @@ public class NetworkPlayer : IPlayer
             _actionSemaphore.Wait(0);
         }
 
-        // Wait for the action with timeout
-        var gotAction = _actionSemaphore.Wait(_actionTimeoutMs);
+        // Wait for the action with timeout (async)
+        var gotAction = await _actionSemaphore.WaitAsync(_actionTimeoutMs);
 
         if (!gotAction)
         {
@@ -129,10 +129,10 @@ public class NetworkPlayer : IPlayer
     /// Makes a basic AI decision when the player is disconnected.
     /// Uses conservative play to preserve the player's chips.
     /// </summary>
-    private PlayerAction MakeBotDecision(GameState gameState)
+    private async Task<PlayerAction> MakeBotDecisionAsync(GameState gameState)
     {
         // Add thinking delay for realism
-        Thread.Sleep(_random.Next(1000, 2000));
+        await Task.Delay(_random.Next(1000, 2000));
 
         var validActions = GetValidActions(gameState);
         var callAmount = Math.Max(0, gameState.CurrentBet - gameState.GetPlayerBetThisRound(this));
