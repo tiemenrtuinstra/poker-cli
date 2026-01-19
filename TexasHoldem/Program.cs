@@ -1,7 +1,9 @@
 ﻿using System.Reflection;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using TexasHoldem.CLI;
+using TexasHoldem.DependencyInjection;
 using TexasHoldem.Game;
 
 namespace TexasHoldem;
@@ -45,9 +47,14 @@ internal class Program
         // Check for updates in the background, but don't block startup for too long
         await VersionChecker.CheckForUpdatesAsync();
 
+        // Setup dependency injection
+        var services = new ServiceCollection();
+        services.AddPokerServices();
+        using var serviceProvider = services.BuildServiceProvider();
+
         try
         {
-            var menu = new Menu();
+            var menu = serviceProvider.GetRequiredService<Menu>();
             bool keepRunning = true;
 
             while (keepRunning)
@@ -94,9 +101,10 @@ internal class Program
                 {
                     // Local game - loop to allow "Play Again"
                     bool playingLocal = true;
+                    var gameUI = serviceProvider.GetRequiredService<IGameUI>();
                     while (playingLocal)
                     {
-                        var game = new TexasHoldemGame(gameConfig);
+                        var game = new TexasHoldemGame(gameConfig, gameUI);
                         await game.StartGame();
 
                         // Game finished - show return options

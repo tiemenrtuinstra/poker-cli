@@ -13,11 +13,11 @@ public class Menu
 
     public NetworkGameResult? LastNetworkGameResult { get; private set; }
 
-    public Menu()
+    public Menu(InputHelper inputHelper, ConfigurationManager configManager, NetworkMenu networkMenu)
     {
-        _inputHelper = new InputHelper();
-        _configManager = new ConfigurationManager();
-        _networkMenu = new NetworkMenu();
+        _inputHelper = inputHelper;
+        _configManager = configManager;
+        _networkMenu = networkMenu;
     }
 
     public GameConfig? SetupGame()
