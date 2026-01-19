@@ -13,21 +13,21 @@ public class TexasHoldemGame
     private readonly GameState _gameState;
     private readonly List<RoundResult> _roundHistory;
     private readonly Random _random;
-    private readonly SpectreGameUI _gameUI;
+    private readonly IGameUI _gameUI;
     private bool _gameRunning;
 
     public bool IsGameRunning => _gameRunning;
     public int CurrentHandNumber => _gameState.HandNumber;
     public List<IPlayer> Players => _gameState.Players.ToList();
 
-    public TexasHoldemGame(GameConfig config)
+    public TexasHoldemGame(GameConfig config, IGameUI? gameUI = null)
     {
         _config = config;
         _random = new Random();
         _dealer = new Dealer(_random);
         _gameState = new GameState();
-        _roundHistory = new List<RoundResult>();
-        _gameUI = new SpectreGameUI();
+        _roundHistory = [];
+        _gameUI = gameUI ?? new SpectreGameUI();
         _gameRunning = false;
 
         InitializeGame();
@@ -47,7 +47,7 @@ public class TexasHoldemGame
         for (int i = 0; i < _config.HumanPlayerCount; i++)
         {
             var playerName = _config.HumanPlayerNames?.ElementAtOrDefault(i) ?? $"Player {i + 1}";
-            var humanPlayer = new HumanPlayer(playerName, _config.StartingChips, gameUI: _gameUI);
+            var humanPlayer = new HumanPlayer(playerName, _config.StartingChips, inputHelper: null, gameUI: _gameUI);
             _gameState.Players.Add(humanPlayer);
         }
 

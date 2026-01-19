@@ -8,17 +8,17 @@ namespace TexasHoldem.Players;
 public class HumanPlayer : IPlayer
 {
     private readonly InputHelper _inputHelper;
-    private readonly SpectreGameUI _gameUI;
+    private readonly IGameUI _gameUI;
 
     public string Name { get; }
     public int Chips { get; set; }
-    public List<Card> HoleCards { get; set; } = new();
+    public List<Card> HoleCards { get; set; } = [];
     public bool IsActive { get; set; } = true;
     public bool IsAllIn { get; set; }
     public bool HasFolded { get; set; }
     public PersonalityType? Personality => null; // Human players don't have AI personalities
 
-    public HumanPlayer(string name, int startingChips, InputHelper? inputHelper = null, SpectreGameUI? gameUI = null)
+    public HumanPlayer(string name, int startingChips, InputHelper? inputHelper = null, IGameUI? gameUI = null)
     {
         Name = name;
         Chips = startingChips;

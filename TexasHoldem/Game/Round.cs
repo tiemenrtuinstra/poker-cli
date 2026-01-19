@@ -11,19 +11,19 @@ public class Round
     private readonly Dealer _dealer;
     private readonly Pot _pot;
     private readonly List<BettingRoundSummary> _bettingSummaries;
-    private readonly SpectreGameUI _gameUI;
+    private readonly IGameUI _gameUI;
 
     public int RoundNumber => _gameState.HandNumber;
     public GamePhase CurrentPhase => _gameState.Phase;
     public List<Card> CommunityCards => _gameState.CommunityCards.ToList();
     public bool IsComplete { get; private set; }
 
-    public Round(GameState gameState, Dealer dealer, SpectreGameUI? gameUI = null)
+    public Round(GameState gameState, Dealer dealer, IGameUI? gameUI = null)
     {
         _gameState = gameState;
         _dealer = dealer;
         _pot = new Pot();
-        _bettingSummaries = new List<BettingRoundSummary>();
+        _bettingSummaries = [];
         _gameUI = gameUI ?? new SpectreGameUI();
         IsComplete = false;
     }

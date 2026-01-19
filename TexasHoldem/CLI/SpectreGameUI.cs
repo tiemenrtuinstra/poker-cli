@@ -10,7 +10,7 @@ namespace TexasHoldem.CLI;
 /// <summary>
 /// Game UI using Spectre.Console for beautiful terminal output
 /// </summary>
-public class SpectreGameUI
+public class SpectreGameUI : IGameUI
 {
     /// <summary>
     /// Display the full poker table with all elements
