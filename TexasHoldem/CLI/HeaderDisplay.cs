@@ -9,34 +9,8 @@ public static class HeaderDisplay
     {
         AnsiConsole.Clear();
 
-        // ASCII Art Cards Header
-        var cardsArt = string.Join("\n",
-            "[red]┌─────┐ ┌─────┐[/] [blue]┌─────┐ ┌─────┐[/]",
-            "[red]│A    │ │K    │[/] [blue]│Q    │ │J    │[/]",
-            "[red]│  ♥  │ │  ♦  │[/] [blue]│  ♠  │ │  ♣  │[/]",
-            "[red]│    A│ │    K│[/] [blue]│    Q│ │    J│[/]",
-            "[red]└─────┘ └─────┘[/] [blue]└─────┘ └─────┘[/]"
-        );
-
-        AnsiConsole.WriteLine();
-        AnsiConsole.Write(Align.Center(new Markup(cardsArt)));
-        AnsiConsole.WriteLine();
-        AnsiConsole.WriteLine();
-
-        // ASCII Art Title - Tiemen's Poker Texas Hold'em (clean readable font, rainbow)
-        var titleArt = string.Join("\n",
-            "[red]╔╦╗[/][orange1]╦[/][yellow]╔═╗[/][lime]╔╦╗[/][green]╔═╗[/][cyan]╔╗╔[/][blue]╦[/][purple]╔═╗[/]  [red]╔═╗[/][orange1]╔═╗[/][yellow]╦╔═[/][lime]╔═╗[/][green]╦═╗[/]",
-            "[red] ║ [/][orange1]║[/][yellow]║╣ [/][lime]║║║[/][green]║╣ [/][cyan]║║║[/][blue]║[/][purple]╚═╗[/]  [red]╠═╝[/][orange1]║ ║[/][yellow]╠╩╗[/][lime]║╣ [/][green]╠╦╝[/]",
-            "[red] ╩ [/][orange1]╩[/][yellow]╚═╝[/][lime]╩ ╩[/][green]╚═╝[/][cyan]╝╚╝[/][blue]╩[/][purple]╚═╝[/]  [red]╩  [/][orange1]╚═╝[/][yellow]╩ ╩[/][lime]╚═╝[/][green]╩╚═[/]",
-            "",
-            "[red]╔╦╗[/][orange1]╔═╗[/][yellow]═╗╔[/][lime]╔═╗[/][green]╔═╗[/]  [cyan]╦ ╦[/][blue]╔═╗[/][purple]╦  [/][magenta]╔╦╗[/][hotpink]╦[/][red]╔═╗[/][orange1]╔╦╗[/]",
-            "[red] ║ [/][orange1]║╣ [/][yellow]╔╩╦╝[/][lime]╠═╣[/][green]╚═╗[/]  [cyan]╠═╣[/][blue]║ ║[/][purple]║  [/][magenta] ║║[/][hotpink]║[/][red]║╣ [/][orange1]║║║[/]",
-            "[red] ╩ [/][orange1]╚═╝[/][yellow]╩ ╚═[/][lime]╩ ╩[/][green]╚═╝[/]  [cyan]╩ ╩[/][blue]╚═╝[/][purple]╩═╝[/][magenta]═╩╝[/][hotpink]╩[/][red]╚═╝[/][orange1]╩ ╩[/]"
-        );
-
-        AnsiConsole.Write(Align.Center(new Markup(titleArt)));
-        AnsiConsole.WriteLine();
-        AnsiConsole.WriteLine();
+        // Use the shared header from HeaderHelper (single source of truth)
+        HeaderHelper.DisplayMainHeader();
 
         // Subtitle
         if (!string.IsNullOrEmpty(subtitle))
